@@ -82,3 +82,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * Slow drift for gradient blooms. Transform-only so it stays on the compositor,
+ * and each layer gets its own duration and direction inline.
+ */
+@keyframes bloom-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(6%, -5%, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-5%, 6%, 0) scale(0.94);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.bloom-drift {
+  animation-name: bloom-drift;
+  animation-duration: 40s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bloom-drift {
+    animation: none;
+  }
+}

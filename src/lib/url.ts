@@ -34,9 +34,30 @@ export function hostnameOf(url: string): string {
 }
 
 /**
+ * Chrome's `_favicon` endpoint (MV3, "favicon" permission) serves icons the
+ * browser already holds: instant, available offline, and no third-party
+ * request. Firefox exposes `chrome` too but has no such endpoint, so it stays
+ * on the fallback along with a plain browser tab.
+ */
+function extensionFaviconEndpoint(): string | null {
+  if (typeof browser !== "undefined") return null
+  if (typeof chrome === "undefined" || !chrome?.runtime?.getURL) return null
+  return chrome.runtime.getURL("/_favicon/")
+}
+
+/**
  * Favicon derived from the URL rather than stored, so nothing to fetch, cache
  * or invalidate. Swap the provider here if it ever needs to change.
  */
 export function faviconUrl(url: string, size = 64): string {
+  const endpoint = extensionFaviconEndpoint()
+
+  if (endpoint) {
+    const favicon = new URL(endpoint)
+    favicon.searchParams.set("pageUrl", url)
+    favicon.searchParams.set("size", String(size))
+    return favicon.toString()
+  }
+
   return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostnameOf(url))}&sz=${size}`
 }

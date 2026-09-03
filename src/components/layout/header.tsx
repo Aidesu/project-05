@@ -1,14 +1,14 @@
-import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useState } from "react"
+import { Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { SettingsSheet } from "@/features/settings/settings-sheet"
 
 export function Header() {
-  const { resolvedTheme, setTheme } = useTheme()
-  const isDark = resolvedTheme === "dark"
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b">
       <div className="mx-auto flex w-full max-w-6xl items-center px-6 py-4">
         {/* The wordmark is the logo — no icon beside it. */}
         <h1 className="text-2xl font-bold leading-none tracking-tighter">
@@ -18,12 +18,14 @@ export function Header() {
           variant="ghost"
           size="icon-sm"
           className="ml-auto"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "Passer en thème clair" : "Passer en thème sombre"}
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Open settings"
         >
-          {isDark ? <Sun /> : <Moon />}
+          <Settings />
         </Button>
       </div>
+
+      <SettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
     </header>
   )
 }

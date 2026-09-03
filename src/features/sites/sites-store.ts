@@ -38,9 +38,9 @@ export const useSitesStore = create<SitesState>()(
 
       addSite: (draft) => {
         const url = normalizeUrl(draft.url)
-        if (!url) return { ok: false, error: "Adresse invalide." }
+        if (!url) return { ok: false, error: "Invalid address." }
         if (get().sites.some((site) => site.url === url)) {
-          return { ok: false, error: "Ce site est déjà sur le tableau." }
+          return { ok: false, error: "This site is already on the board." }
         }
 
         const now = Date.now()
@@ -60,12 +60,12 @@ export const useSitesStore = create<SitesState>()(
 
       updateSite: (id, draft) => {
         const url = normalizeUrl(draft.url)
-        if (!url) return { ok: false, error: "Adresse invalide." }
+        if (!url) return { ok: false, error: "Invalid address." }
 
         const existing = get().sites.find((site) => site.id === id)
-        if (!existing) return { ok: false, error: "Site introuvable." }
+        if (!existing) return { ok: false, error: "Site not found." }
         if (get().sites.some((site) => site.id !== id && site.url === url)) {
-          return { ok: false, error: "Ce site est déjà sur le tableau." }
+          return { ok: false, error: "This site is already on the board." }
         }
 
         const site: Site = {

@@ -21,7 +21,7 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
           target="_blank"
           rel="noreferrer noopener"
           title={hostnameOf(site.url)}
-          className="grid size-16 place-items-center rounded-full border bg-card transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="grid size-16 place-items-center rounded-full border transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           {faviconFailed ? (
             <span className="text-lg font-semibold uppercase text-muted-foreground">
@@ -45,7 +45,7 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
         <button
           type="button"
           onClick={() => onEdit(site)}
-          aria-label={`Modifier ${site.title}`}
+          aria-label={`Edit ${site.title}`}
           className="absolute -bottom-0.5 -right-0.5 grid size-6 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 group-hover:opacity-100"
         >
           <Pencil className="size-3" />

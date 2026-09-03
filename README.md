@@ -19,6 +19,33 @@ npm run dev
 | `npm run lint`      | Run ESLint                           |
 | `npm run typecheck` | Type-check without emitting          |
 
+## Install as the new-tab page
+
+A page cannot focus the browser's address bar — browsers forbid it. The
+address bar gets focus when *the browser* opens a new tab, so the way to get
+that behaviour is to make this page the new-tab page.
+
+```bash
+npm run build
+```
+
+Then in Chrome or Edge: `chrome://extensions` → enable **Developer mode** →
+**Load unpacked** → pick `dist/`. Every `Ctrl+T` now opens the board with the
+caret already in the address bar.
+
+Three things make the build loadable as an extension:
+
+- `base: "./"` in `vite.config.ts` — inside an extension `/` is the extension
+  root, not the page's folder, so absolute asset URLs 404.
+- `public/manifest.json` — MV3, declaring `chrome_url_overrides.newtab`.
+- The `favicon` permission, which lets `faviconUrl()` use Chrome's `_favicon`
+  endpoint: icons the browser already holds, served offline with no
+  third-party request. In a plain tab (and in Firefox, which has no such
+  endpoint) it falls back to Google's favicon service.
+
+`localStorage` and IndexedDB behave normally on an extension page, so sites,
+settings and uploaded wallpapers all survive the move.
+
 ## Structure
 
 ```
@@ -27,11 +54,15 @@ src/
 │   ├── ui/          # shadcn/ui primitives — owned code, edit freely
 │   └── layout/      # app chrome (header)
 ├── features/
+│   ├── background/  # wallpaper: store, presets, render layer, settings
+│   ├── settings/    # the right-hand settings panel
 │   └── sites/       # the board: store, types, bubble, board, form
 ├── lib/
-│   ├── url.ts       # URL normalisation + favicon derivation
-│   └── utils.ts     # cn() class merger
-├── index.css        # Tailwind entry + design tokens
+│   ├── asset-store.ts  # IndexedDB blob storage (uploads)
+│   ├── color.ts        # hex ↔ rgb for the colour pickers
+│   ├── url.ts          # URL normalisation + favicon derivation
+│   └── utils.ts        # cn() class merger
+├── index.css        # Tailwind entry + bloom-drift keyframes
 ├── App.tsx
 └── main.tsx
 ```
@@ -68,5 +99,19 @@ component: URL normalisation and deduplication. Search, tag filtering and
 ordering are derived at render time in `site-board.tsx` — deliberately not
 stored, to avoid a second source of truth.
 
-Swapping `localStorage` for IndexedDB or a real backend means replacing the
-middleware's `storage` option; the components stay untouched.
+`src/features/background/background-store.ts` follows the same shape under the
+key `mainboard.background`.
+
+### Where uploads go
+
+An uploaded wallpaper would blow past the ~5 MB `localStorage` quota on the
+first photo, so the two are split:
+
+- **Settings → `localStorage`.** A colour, a preset id, a URL, or an *asset id*
+  — a few bytes either way.
+- **Bytes → IndexedDB**, via `src/lib/asset-store.ts` (`putAsset` / `getAsset` /
+  `deleteAsset`, no dependency). Replacing a background deletes the asset it
+  replaced, so no orphan blobs accumulate.
+
+Swapping `localStorage` for a real backend means replacing the middleware's
+`storage` option; the components stay untouched.

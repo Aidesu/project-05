@@ -42,7 +42,7 @@ export function SiteBoard() {
   return (
     <div className="grid gap-6">
       {tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
           {tags.map((tag) => (
             <Button
               key={tag}
@@ -56,18 +56,18 @@ export function SiteBoard() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-start gap-4">
+      <div className="flex flex-wrap items-start justify-center gap-4">
         <div className="grid w-20 justify-items-center gap-2">
           <button
             type="button"
             onClick={openAdd}
-            aria-label="Ajouter un site"
+            aria-label="Add a site"
             className="grid size-16 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             +
           </button>
           <span className="w-full truncate text-center text-xs text-muted-foreground">
-            Ajouter
+            Add
           </span>
         </div>
 
@@ -77,8 +77,8 @@ export function SiteBoard() {
       </div>
 
       {sites.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          Aucun site pour l&apos;instant — ajoutez une première adresse avec le bouton ci-dessus.
+        <p className="text-center text-sm text-muted-foreground">
+          No sites yet — add your first address with the button above.
         </p>
       )}
 

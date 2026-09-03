@@ -87,35 +87,35 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
       return
     }
 
-    toast.success(site ? "Site mis à jour." : `${result.site.title} ajouté.`)
+    toast.success(site ? "Site updated." : `${result.site.title} added.`)
     onDone()
   }
 
   function handleDelete() {
     if (!site) return
     removeSite(site.id)
-    toast.success(`${site.title} supprimé.`)
+    toast.success(`${site.title} deleted.`)
     onDone()
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4">
       <DialogHeader>
-        <DialogTitle>{site ? "Modifier le site" : "Ajouter un site"}</DialogTitle>
+        <DialogTitle>{site ? "Edit site" : "Add a site"}</DialogTitle>
         <DialogDescription>
           {site
-            ? "Le nom et l'icône sont repris du domaine si vous les laissez vides."
-            : "Collez l'adresse du site. Son nom et son logo sont repris du domaine."}
+            ? "The name and icon are derived from the domain if you leave them blank."
+            : "Paste the site's address. Its name and logo are derived from the domain."}
         </DialogDescription>
       </DialogHeader>
 
       <div className="grid gap-2">
-        <Label htmlFor="site-url">Adresse</Label>
+        <Label htmlFor="site-url">Address</Label>
         <Input
           id="site-url"
           value={fields.url}
           onChange={bind("url")}
-          placeholder="exemple.com"
+          placeholder="example.com"
           autoFocus
           autoComplete="off"
           spellCheck={false}
@@ -129,12 +129,12 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
       {site && (
         <>
           <div className="grid gap-2">
-            <Label htmlFor="site-title">Nom</Label>
+            <Label htmlFor="site-title">Name</Label>
             <Input
               id="site-title"
               value={fields.title}
               onChange={bind("title")}
-              placeholder="Repris du domaine si vide"
+              placeholder="Derived from the domain if blank"
             />
           </div>
 
@@ -144,7 +144,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
               id="site-description"
               value={fields.description}
               onChange={bind("description")}
-              placeholder="À quoi sert ce site ?"
+              placeholder="What is this site for?"
             />
           </div>
 
@@ -154,9 +154,9 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
               id="site-tags"
               value={fields.tags}
               onChange={bind("tags")}
-              placeholder="veille, design, outils"
+              placeholder="reading, design, tools"
             />
-            <p className="text-xs text-muted-foreground">Séparés par des virgules.</p>
+            <p className="text-xs text-muted-foreground">Comma-separated.</p>
           </div>
         </>
       )}
@@ -175,27 +175,27 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
             className="mr-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={() => setConfirmingDelete(true)}
           >
-            Supprimer
+            Delete
           </Button>
         )}
         <Button type="button" variant="ghost" onClick={onDone}>
-          Annuler
+          Cancel
         </Button>
-        <Button type="submit">{site ? "Enregistrer" : "Ajouter"}</Button>
+        <Button type="submit">{site ? "Save" : "Add"}</Button>
       </DialogFooter>
 
       {site && (
         <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer {site.title} ?</AlertDialogTitle>
+              <AlertDialogTitle>Delete {site.title}?</AlertDialogTitle>
               <AlertDialogDescription>
-                Le site est retiré du tableau. Cette action est irréversible.
+                The site is removed from the board. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Annuler</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete}>Supprimer</AlertDialogAction>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
