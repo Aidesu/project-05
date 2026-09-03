@@ -3,7 +3,7 @@ const DB_VERSION = 1
 const STORE_NAME = "assets"
 
 /**
- * Blob storage for anything too big for `localStorage` — an uploaded wallpaper
+ * Blob storage for anything too big for `localStorage`an uploaded wallpaper
  * blows past its ~5 MB quota on the first photo. Settings keep a reference
  * (the asset id) and the bytes live here.
  */

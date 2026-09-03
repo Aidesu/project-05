@@ -2,9 +2,14 @@
   "manifest_version": 3,
   "name": "Hi.",
   "version": "1.0.0",
-  "description": "Vos sites favoris à la place de la page nouvel onglet.",
+  "description": "Your favorite sites in place of the new tab page.",
   "permissions": ["favicon"],
   "chrome_url_overrides": {
     "newtab": "index.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "newtab@hi.local"
+    }
   }
 }

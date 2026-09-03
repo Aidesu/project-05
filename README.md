@@ -21,7 +21,7 @@ npm run dev
 
 ## Install as the new-tab page
 
-A page cannot focus the browser's address bar — browsers forbid it. The
+A page cannot focus the browser's address barbrowsers forbid it. The
 address bar gets focus when *the browser* opens a new tab, so the way to get
 that behaviour is to make this page the new-tab page.
 
@@ -29,15 +29,26 @@ that behaviour is to make this page the new-tab page.
 npm run build
 ```
 
-Then in Chrome or Edge: `chrome://extensions` → enable **Developer mode** →
+**Chrome or Edge:** `chrome://extensions` → enable **Developer mode** →
 **Load unpacked** → pick `dist/`. Every `Ctrl+T` now opens the board with the
 caret already in the address bar.
 
-Three things make the build loadable as an extension:
+**Firefox:** `about:debugging#/runtime/this-firefox` → **Load Temporary
+Add-on…** → pick `dist/manifest.json` (a file, not the folder). This lasts
+until Firefox restartsFirefox only keeps unsigned add-ons installed for the
+session, there is no permanent "load unpacked" outside Nightly/Developer
+Edition with `xpinstall.signatures.required` turned off in `about:config`.
+For a lasting install, submit the built `dist/` folder for signing at
+[addons.mozilla.org](https://addons.mozilla.org) (self-distribution is fine —
+it doesn't need to be public) and install the signed `.xpi` it gives back.
 
-- `base: "./"` in `vite.config.ts` — inside an extension `/` is the extension
+Four things make the build loadable as an extension:
+
+- `base: "./"` in `vite.config.ts`inside an extension `/` is the extension
   root, not the page's folder, so absolute asset URLs 404.
-- `public/manifest.json` — MV3, declaring `chrome_url_overrides.newtab`.
+- `public/manifest.json`MV3, declaring `chrome_url_overrides.newtab` plus
+  `browser_specific_settings.gecko.id`, which Firefox requires to keep an
+  add-on's identity (and its storage) stable across reloads.
 - The `favicon` permission, which lets `faviconUrl()` use Chrome's `_favicon`
   endpoint: icons the browser already holds, served offline with no
   third-party request. In a plain tab (and in Firefox, which has no such
@@ -51,7 +62,7 @@ settings and uploaded wallpapers all survive the move.
 ```
 src/
 ├── components/
-│   ├── ui/          # shadcn/ui primitives — owned code, edit freely
+│   ├── ui/          # shadcn/ui primitivesowned code, edit freely
 │   └── layout/      # app chrome (header)
 ├── features/
 │   ├── background/  # wallpaper: store, presets, render layer, settings
@@ -84,7 +95,7 @@ npx shadcn@latest add dropdown-menu
 ## Data & storage
 
 Sites are held in `src/features/sites/sites-store.ts`, a Zustand store wrapped
-in the `persist` middleware — one key, `mainboard.sites`, in `localStorage`.
+in the `persist` middlewareone key, `mainboard.sites`, in `localStorage`.
 
 Two conventions keep it safe to evolve:
 
@@ -96,7 +107,7 @@ Two conventions keep it safe to evolve:
 
 The store owns CRUD plus the two invariants that must not be duplicated in a
 component: URL normalisation and deduplication. Search, tag filtering and
-ordering are derived at render time in `site-board.tsx` — deliberately not
+ordering are derived at render time in `site-board.tsx`deliberately not
 stored, to avoid a second source of truth.
 
 `src/features/background/background-store.ts` follows the same shape under the
@@ -108,7 +119,7 @@ An uploaded wallpaper would blow past the ~5 MB `localStorage` quota on the
 first photo, so the two are split:
 
 - **Settings → `localStorage`.** A colour, a preset id, a URL, or an *asset id*
-  — a few bytes either way.
+ a few bytes either way.
 - **Bytes → IndexedDB**, via `src/lib/asset-store.ts` (`putAsset` / `getAsset` /
   `deleteAsset`, no dependency). Replacing a background deletes the asset it
   replaced, so no orphan blobs accumulate.

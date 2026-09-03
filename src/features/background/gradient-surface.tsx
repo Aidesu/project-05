@@ -5,7 +5,7 @@ import type { GradientSpec } from "./types"
 /**
  * Each bloom is its own layer rather than one stacked `background-image`, so a
  * single bloom can drift on its own. The base colour stays on `background-color`
- * — a bare colour in `background-image` invalidates the whole declaration.
+ *a bare colour in `background-image` invalidates the whole declaration.
  */
 export function GradientSurface({
   spec,

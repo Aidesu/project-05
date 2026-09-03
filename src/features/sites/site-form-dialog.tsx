@@ -123,7 +123,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
         />
       </div>
 
-      {/* Adding asks for the address and nothing else — the title falls back to
+      {/* Adding asks for the address and nothing elsethe title falls back to
           the domain and the icon is derived from it. The rest is enrichment,
           offered once the site is on the board. */}
       {site && (

@@ -40,7 +40,7 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
           )}
         </a>
 
-        {/* Revealed on hover, but also on keyboard focus — hover-only would put
+        {/* Revealed on hover, but also on keyboard focushover-only would put
             editing out of reach without a mouse. */}
         <button
           type="button"

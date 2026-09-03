@@ -28,7 +28,7 @@ function cleanTags(tags: string[]): string[] {
 
 /**
  * The board's single source of truth: plain CRUD over a list, plus the two
- * invariants that must not live in a component — URL normalisation and
+ * invariants that must not live in a componentURL normalisation and
  * deduplication. Search, filtering and sorting are derived at render time.
  */
 export const useSitesStore = create<SitesState>()(
@@ -89,7 +89,7 @@ export const useSitesStore = create<SitesState>()(
     {
       name: "mainboard.sites",
       version: 1,
-      /** Only data is persisted — actions are rebuilt on every load. */
+      /** Only data is persistedactions are rebuilt on every load. */
       partialize: (state) => ({ sites: state.sites }),
       /**
        * Bump `version` and add a case here whenever `Site` changes shape, so

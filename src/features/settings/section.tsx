@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 
-/** One labelled block of settings — every section in the panel uses this. */
+/** One labelled block of settingsevery section in the panel uses this. */
 export function Section({
   title,
   hint,

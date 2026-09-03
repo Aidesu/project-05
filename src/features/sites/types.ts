@@ -1,6 +1,6 @@
 export type Site = {
   id: string
-  /** Normalised absolute URL — the deduplication key. */
+  /** Normalised absolute URLthe deduplication key. */
   url: string
   title: string
   description?: string

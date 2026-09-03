@@ -24,7 +24,7 @@ export function normalizeUrl(input: string): string | null {
   return url.toString()
 }
 
-/** Display host for an already-normalised URL — "www." dropped, never throws. */
+/** Display host for an already-normalised URL"www." dropped, never throws. */
 export function hostnameOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "")

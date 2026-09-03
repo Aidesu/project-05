@@ -10,7 +10,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-10 border-b">
       <div className="mx-auto flex w-full max-w-6xl items-center px-6 py-4">
-        {/* The wordmark is the logo — no icon beside it. */}
+        {/* The wordmark is the logono icon beside it. */}
         <h1 className="text-2xl font-bold leading-none tracking-tighter">
           Hi<span className="text-muted-foreground">.</span>
         </h1>

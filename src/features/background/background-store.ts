@@ -22,7 +22,7 @@ const NONE: Background = { kind: "none" }
 const DEFAULT_BACKGROUND: Background = { kind: "gradient", preset: BUILT_IN_GRADIENTS[0].id }
 
 /**
- * Only the *description* of the background is persisted here — a colour, a
+ * Only the *description* of the background is persisted herea colour, a
  * preset id, a URL or an asset id. Uploaded bytes live in IndexedDB
  * (`@/lib/asset-store`), well clear of the localStorage quota.
  */

@@ -75,7 +75,7 @@ export function BackgroundLayer() {
       )}
 
       {background.kind === "video" && src && (
-        // `key` forces a reload when the source changes — <video> ignores a
+        // `key` forces a reload when the source changes<video> ignores a
         // plain src swap once it has started buffering.
         <video
           key={src}

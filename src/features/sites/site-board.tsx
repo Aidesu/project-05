@@ -78,7 +78,7 @@ export function SiteBoard() {
 
       {sites.length === 0 && (
         <p className="text-center text-sm text-muted-foreground">
-          No sites yet — add your first address with the button above.
+          No sites yetadd your first address with the button above.
         </p>
       )}
 
