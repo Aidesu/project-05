@@ -18,7 +18,7 @@ export default function App() {
       <div data-on-bg={contrast ?? undefined}>
         <Header />
         <WeatherCard />
-        <main className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-4 pb-10">
+        <main className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-16 pb-10">
           <Greeting />
           <SiteBoard />
         </main>

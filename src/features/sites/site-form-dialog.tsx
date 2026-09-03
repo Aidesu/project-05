@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+import { SiteTagsField } from "./site-tags-field"
 import { useSitesStore } from "./sites-store"
 import type { Site } from "./types"
 
@@ -51,7 +52,7 @@ function initialFields(site?: Site) {
     url: site?.url ?? "",
     title: site?.title ?? "",
     description: site?.description ?? "",
-    tags: site?.tags.join(", ") ?? "",
+    tags: site?.tags ?? [],
     hidden: site?.hidden ?? false,
   }
 }
@@ -65,7 +66,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
-  function bind(key: keyof ReturnType<typeof initialFields>) {
+  function bind(key: "url" | "title" | "description") {
     return (event: ChangeEvent<HTMLInputElement>) => {
       const { value } = event.target
       setFields((current) => ({ ...current, [key]: value }))
@@ -80,7 +81,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
       url: fields.url,
       title: fields.title,
       description: fields.description,
-      tags: fields.tags.split(","),
+      tags: fields.tags,
       hidden: fields.hidden,
     }
     const result = site ? updateSite(site.id, draft) : addSite(draft)
@@ -152,14 +153,11 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="site-tags">Tags</Label>
-            <Input
-              id="site-tags"
+            <Label>Tags</Label>
+            <SiteTagsField
               value={fields.tags}
-              onChange={bind("tags")}
-              placeholder="reading, design, tools"
+              onChange={(tags) => setFields((current) => ({ ...current, tags }))}
             />
-            <p className="text-xs text-muted-foreground">Comma-separated.</p>
           </div>
 
           <label className="flex items-start gap-2 text-sm">
@@ -174,7 +172,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
               Hide from the board
               <span className="block text-xs text-muted-foreground">
                 Only shows up when one of its tags is selected above.
-                {fields.hidden && fields.tags.trim() === "" && (
+                {fields.hidden && fields.tags.length === 0 && (
                   <> Add a tag, or it won't be reachable.</>
                 )}
               </span>

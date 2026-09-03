@@ -46,7 +46,7 @@ export function SiteBoard() {
   }
 
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-4">
       {tags.length > 0 && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {tags.map((tag) => (
@@ -62,37 +62,47 @@ export function SiteBoard() {
         </div>
       )}
 
-      <div className="flex justify-center">
-        {/* Sites are the only in-flow content herethe centering above is
-            theirs alone. Add sits outside that flow (absolute), so it never
-            shifts where the sites themselves land. */}
-        <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-4">
-          {visibleSites.map((site) => (
-            <SiteBubble key={site.id} site={site} onEdit={openEdit} />
-          ))}
+      {sites.length === 0 ? (
+        // Nothing to hide the button behindit's the only thing here, so it
+        // stays front and centre instead of waiting on a hover.
+        <div className="grid justify-items-center gap-2">
+          <button
+            type="button"
+            onClick={openAdd}
+            aria-label="Add a site"
+            className="grid size-20 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          >
+            +
+          </button>
+          <p className="text-center text-sm text-muted-foreground">Add your first site.</p>
+        </div>
+      ) : (
+        <div className="flex justify-center">
+          {/* Sites are the only in-flow content herethe centering above is
+              theirs alone. Add sits outside that flow (absolute), so it never
+              shifts where the sites themselves land. */}
+          <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-2">
+            {visibleSites.map((site) => (
+              <SiteBubble key={site.id} site={site} onEdit={openEdit} />
+            ))}
 
-          {/* Hidden until the section is hoveredfocus-within too, so it
-              stays reachable by keyboard. */}
-          <div className="absolute top-0 left-full ml-6 grid w-24 justify-items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/sites:opacity-100">
-            <button
-              type="button"
-              onClick={openAdd}
-              aria-label="Add a site"
-              className="grid size-20 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            >
-              +
-            </button>
-            <span className="w-full truncate text-center text-xs text-muted-foreground">
-              Add
-            </span>
+            {/* Hidden until the section is hoveredfocus-within too, so it
+                stays reachable by keyboard. */}
+            <div className="absolute top-0 left-full ml-6 grid w-24 justify-items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/sites:opacity-100">
+              <button
+                type="button"
+                onClick={openAdd}
+                aria-label="Add a site"
+                className="grid size-20 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                +
+              </button>
+              <span className="w-full truncate text-center text-xs text-muted-foreground">
+                Add
+              </span>
+            </div>
           </div>
         </div>
-      </div>
-
-      {sites.length === 0 && (
-        <p className="text-center text-sm text-muted-foreground">
-          No sites yetadd your first address with the button above.
-        </p>
       )}
 
       <SiteFormDialog open={dialogOpen} onOpenChange={setDialogOpen} site={editing} />

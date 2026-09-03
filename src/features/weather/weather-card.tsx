@@ -3,7 +3,15 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { describeWeatherCode } from "./weather-codes"
 import { useWeather } from "./use-weather"
 import { useWeatherStore } from "./weather-store"
-import type { WeatherSnapshot } from "./types"
+import type { WeatherPosition, WeatherSnapshot } from "./types"
+
+// Top corners sit below the header; bottom corners just clear the edge.
+const POSITION_CLASSES: Record<WeatherPosition, string> = {
+  "top-left": "top-20 left-6",
+  "top-right": "top-20 right-6",
+  "bottom-left": "bottom-6 left-6",
+  "bottom-right": "bottom-6 right-6",
+}
 
 function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: () => void }) {
   const { label: description, Icon } = describeWeatherCode(data.code, data.isDay)
@@ -27,17 +35,18 @@ function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: (
 }
 
 /**
- * Floating overlay in the bottom-right corner. No card chromejust icon and
+ * Floating overlay, corner set in settings. No card chromejust icon and
  * text, independent of the board layout above it.
  */
 export function WeatherCard() {
   const enabled = useWeatherStore((state) => state.enabled)
+  const position = useWeatherStore((state) => state.position)
   const weather = useWeather()
 
   if (!enabled) return null
 
   return (
-    <div className="fixed right-6 bottom-6 z-20 flex justify-center">
+    <div className={`fixed z-20 flex justify-center ${POSITION_CLASSES[position]}`}>
       {(weather.status === "locating" || weather.status === "loading") && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
