@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { BackgroundSettings } from "@/features/background/background-settings"
+import { WeatherSettings } from "@/features/weather/weather-settings"
 
 import { Section } from "./section"
 
@@ -56,6 +57,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           </Section>
 
           <BackgroundSettings />
+          <WeatherSettings />
         </div>
       </SheetContent>
     </Sheet>

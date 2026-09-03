@@ -1,16 +1,26 @@
 import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/sonner"
 import { BackgroundLayer } from "@/features/background/background-layer"
+import { useBackgroundContrast } from "@/features/background/use-background-contrast"
 import { SiteBoard } from "@/features/sites/site-board"
+import { WeatherCard } from "@/features/weather/weather-card"
 
 export default function App() {
+  const contrast = useBackgroundContrast()
+
   return (
     <div className="min-h-svh">
       <BackgroundLayer />
-      <Header />
-      <main className="mx-auto w-full max-w-6xl px-6 py-8">
-        <SiteBoard />
-      </main>
+      {/* Only this partnot the background layer or the Toasterneeds to
+          flip with the background's lightness: everything here sits
+          directly on it with no opaque surface behind. */}
+      <div data-on-bg={contrast ?? undefined}>
+        <Header />
+        <main className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-8">
+          <WeatherCard />
+          <SiteBoard />
+        </main>
+      </div>
       <Toaster />
     </div>
   )
