@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ function initialFields(site?: Site) {
     title: site?.title ?? "",
     description: site?.description ?? "",
     tags: site?.tags.join(", ") ?? "",
+    hidden: site?.hidden ?? false,
   }
 }
 
@@ -79,6 +81,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
       title: fields.title,
       description: fields.description,
       tags: fields.tags.split(","),
+      hidden: fields.hidden,
     }
     const result = site ? updateSite(site.id, draft) : addSite(draft)
 
@@ -158,6 +161,25 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
             />
             <p className="text-xs text-muted-foreground">Comma-separated.</p>
           </div>
+
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox
+              className="mt-0.5"
+              checked={fields.hidden}
+              onCheckedChange={(checked) =>
+                setFields((current) => ({ ...current, hidden: checked === true }))
+              }
+            />
+            <span>
+              Hide from the board
+              <span className="block text-xs text-muted-foreground">
+                Only shows up when one of its tags is selected above.
+                {fields.hidden && fields.tags.trim() === "" && (
+                  <> Add a tag, or it won't be reachable.</>
+                )}
+              </span>
+            </span>
+          </label>
         </>
       )}
 

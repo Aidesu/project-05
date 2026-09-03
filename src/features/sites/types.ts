@@ -5,6 +5,8 @@ export type Site = {
   title: string
   description?: string
   tags: string[]
+  /** Left off the board unless one of its tags is the active filter. */
+  hidden: boolean
   /** Epoch milliseconds, not `Date`: localStorage round-trips through JSON. */
   createdAt: number
   updatedAt: number
@@ -16,4 +18,5 @@ export type SiteDraft = {
   title: string
   description: string
   tags: string[]
+  hidden: boolean
 }

@@ -50,6 +50,7 @@ export const useSitesStore = create<SitesState>()(
           title: draft.title.trim() || hostnameOf(url),
           description: draft.description.trim() || undefined,
           tags: cleanTags(draft.tags),
+          hidden: draft.hidden,
           createdAt: now,
           updatedAt: now,
         }
@@ -74,6 +75,7 @@ export const useSitesStore = create<SitesState>()(
           title: draft.title.trim() || hostnameOf(url),
           description: draft.description.trim() || undefined,
           tags: cleanTags(draft.tags),
+          hidden: draft.hidden,
           updatedAt: Date.now(),
         }
 
@@ -88,18 +90,20 @@ export const useSitesStore = create<SitesState>()(
     }),
     {
       name: "mainboard.sites",
-      version: 1,
+      version: 2,
       /** Only data is persistedactions are rebuilt on every load. */
       partialize: (state) => ({ sites: state.sites }),
       /**
        * Bump `version` and add a case here whenever `Site` changes shape, so
-       * boards already saved in a browser keep loading. e.g. going to v2:
-       *   if (version < 2) sites = sites.map((s) => ({ ...s, pinned: false }))
+       * boards already saved in a browser keep loading. e.g. going to v3:
+       *   if (version < 3) sites = sites.map((s) => ({ ...s, pinned: false }))
        */
       migrate: (persisted, version) => {
         const state = persisted as { sites?: Site[] } | undefined
-        const sites = state?.sites ?? []
-        if (version < 1) return { sites: [] }
+        let sites = state?.sites ?? []
+        if (version < 1) sites = []
+        // v2 added `hidden`existing sites stay visible by default.
+        if (version < 2) sites = sites.map((site) => ({ ...site, hidden: site.hidden ?? false }))
         return { sites }
       },
     }

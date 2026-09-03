@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/sonner"
 import { BackgroundLayer } from "@/features/background/background-layer"
 import { useBackgroundContrast } from "@/features/background/use-background-contrast"
+import { Greeting } from "@/features/greeting/greeting"
 import { SiteBoard } from "@/features/sites/site-board"
 import { WeatherCard } from "@/features/weather/weather-card"
 
@@ -16,8 +17,9 @@ export default function App() {
           directly on it with no opaque surface behind. */}
       <div data-on-bg={contrast ?? undefined}>
         <Header />
-        <main className="mx-auto grid w-full max-w-6xl gap-8 px-6 py-8">
-          <WeatherCard />
+        <WeatherCard />
+        <main className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-4 pb-10">
+          <Greeting />
           <SiteBoard />
         </main>
       </div>

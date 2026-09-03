@@ -26,7 +26,10 @@ function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: (
   )
 }
 
-/** No card chromejust icon and text sitting on the page, like the rest of the board. */
+/**
+ * Floating overlay in the bottom-right corner. No card chromejust icon and
+ * text, independent of the board layout above it.
+ */
 export function WeatherCard() {
   const enabled = useWeatherStore((state) => state.enabled)
   const weather = useWeather()
@@ -34,7 +37,7 @@ export function WeatherCard() {
   if (!enabled) return null
 
   return (
-    <div className="flex justify-center">
+    <div className="fixed right-6 bottom-6 z-20 flex justify-center">
       {(weather.status === "locating" || weather.status === "loading") && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />
