@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Eye, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 import { NewsArticleDialog } from "./news-article-dialog"
-import { NewsCard } from "./news-card"
+import { NEWS_CARD_HEIGHT, NewsCard } from "./news-card"
 import { newsCategory, NEWS_CATEGORIES } from "./news-sources"
 import { useNews } from "./use-news"
 import { useNewsSeenStore } from "./news-seen-store"
@@ -18,6 +19,13 @@ import type { NewsArticle } from "./types"
  * ease-out the browser itself puts on a wheel tick.
  */
 const WHEEL_EASING = 0.2
+
+/**
+ * Columns are laid by width, not by breakpoint: as many ~18rem cards as fit,
+ * which is two on a laptop, four across a 1400px column and one on a phone or
+ * a heavily zoomed window — no step changes on the way.
+ */
+const NEWS_GRID = "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-3"
 
 /** Whether the wheel landed on something that already scrolls itself. */
 function scrollsItself(target: EventTarget | null): boolean {
@@ -134,7 +142,7 @@ export function NewsFeed() {
   if (!enabled) return null
 
   return (
-    <section className="mx-auto flex min-h-0 w-full max-w-5xl flex-col gap-2">
+    <section className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-col gap-2">
       {categories.length > 1 && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {/* Same shape as the board's "All" filter: leading, outlined, with
@@ -174,11 +182,14 @@ export function NewsFeed() {
       {/* Placeholders rather than a spinner: the grid keeps its shape while
           the headlines land, so the page below doesn't jump. */}
       {news.status === "loading" && (
-        <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-3 overflow-hidden sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }, (_, index) => (
+        <div className={cn(NEWS_GRID, "min-h-0 flex-1 overflow-hidden")}>
+          {Array.from({ length: 8 }, (_, index) => (
             <div
               key={index}
-              className="h-72 animate-pulse rounded-xl border border-border/60 bg-card/40"
+              className={cn(
+                NEWS_CARD_HEIGHT,
+                "animate-pulse rounded-xl border border-border/60 bg-card/40"
+              )}
             />
           ))}
         </div>
@@ -207,7 +218,7 @@ export function NewsFeed() {
               scrollbar: the grid ends flush with the wallpaper. */}
           <ul
             ref={listRef}
-            className="scrollbar-none grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-3 overflow-y-auto overscroll-contain sm:grid-cols-2 lg:grid-cols-3"
+            className={cn(NEWS_GRID, "scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain")}
           >
             {news.articles.map((article) => (
               <li key={article.id}>

@@ -21,9 +21,16 @@ export type NewsArticle = {
 
 export type NewsCategoryId =
   | "world"
+  | "geopolitics"
   | "business"
   | "science"
+  | "sports"
   | "tech"
+  | "gaming"
+  | "screen"
+  | "music"
+  | "open-source"
+  | "energy"
   | "space"
   | "dev"
   | "hn"

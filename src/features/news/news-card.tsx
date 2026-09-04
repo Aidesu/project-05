@@ -20,13 +20,21 @@ function sourceHue(source: string): number {
   return hash
 }
 
+/**
+ * Card height, and with it the whole grid's rhythm: it follows the viewport
+ * rather than sitting at a fixed 288px, so a short window (or a zoomed one,
+ * which is the same thing in CSS pixels) gets proportionally smaller cards
+ * instead of two enormous ones.
+ */
+export const NEWS_CARD_HEIGHT = "h-[clamp(14rem,32svh,18rem)]"
+
 /** Stands in for the picture on sources that publish none (Wikipedia, HN, most of DEV). */
 function ImagePlaceholder({ source }: { source: string }) {
   const hue = sourceHue(source)
 
   return (
     <div
-      className="grid h-36 place-items-center gap-1 bg-muted"
+      className="grid h-full place-items-center gap-1 bg-muted"
       style={{
         backgroundImage: `linear-gradient(135deg, oklch(0.7 0.09 ${hue} / 0.35), oklch(0.6 0.11 ${(hue + 40) % 360} / 0.12))`,
       }}
@@ -63,13 +71,16 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
       <Card
         data-seen={seen || undefined}
         className={cn(
-          "h-72 gap-0 overflow-hidden border-border/60 bg-card/80 py-0 shadow-sm backdrop-blur-sm transition-[background-color,box-shadow,border-color] group-hover:bg-card group-hover:shadow-md",
+          NEWS_CARD_HEIGHT,
+          "gap-0 overflow-hidden border-border/60 bg-card/80 py-0 shadow-sm backdrop-blur-sm transition-[background-color,box-shadow,border-color] group-hover:bg-card group-hover:shadow-md",
           seen && "border-border/25 bg-card/55"
         )}
       >
-        <div className={cn("shrink-0", seen && "opacity-55 grayscale-[40%]")}>
+        {/* Two fifths to the picture, the rest to the words: the split holds
+            at every card height, so nothing is ever cut off mid-line. */}
+        <div className={cn("h-2/5 shrink-0", seen && "opacity-55 grayscale-[40%]")}>
           {image ? (
-            <div className="h-36 overflow-hidden bg-muted">
+            <div className="h-full overflow-hidden bg-muted">
               <img
                 src={image}
                 alt=""
@@ -83,7 +94,7 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
           )}
         </div>
 
-        <div className="grid content-start gap-1.5 p-3.5">
+        <div className="grid min-h-0 flex-1 content-start gap-1.5 overflow-hidden p-3.5">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <img
               src={faviconUrl(article.url, 32)}
@@ -107,7 +118,7 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
           <h3
             className={cn(
               "text-sm leading-snug font-medium",
-              article.summary ? "line-clamp-2" : "line-clamp-4",
+              article.summary ? "line-clamp-2" : "line-clamp-3",
               seen && "font-normal text-muted-foreground"
             )}
           >

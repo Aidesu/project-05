@@ -25,7 +25,13 @@ export default function App() {
         <ChecklistCard />
         {/* Greeting and board take the height they need; the last row — the
             feed — takes whatever is left. */}
-        <main className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-8 px-6 pt-12 pb-3">
+        {/* Wide enough for four columns of news on an ultrawide, while the
+            greeting and the board stay centred inside it as before. */}
+        {/* The spacing above and between the rows follows the viewport's
+            height, so a short or zoomed window spends its pixels on the feed
+            rather than on air. Both settle at their full size (48px, 32px) on
+            anything 800px tall or more. */}
+        <main className="mx-auto grid min-h-0 w-full max-w-[87.5rem] flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-[clamp(1rem,4svh,2rem)] px-6 pt-[clamp(1.5rem,6svh,3rem)] pb-3">
           <Greeting />
           <SiteBoard />
           <NewsFeed />
