@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hi.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Your favorite sites in place of the new tab page.",
   "permissions": ["favicon"],
   "chrome_url_overrides": {
@@ -9,7 +9,10 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "newtab@hi.local"
+      "id": "newtab@hi.local",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

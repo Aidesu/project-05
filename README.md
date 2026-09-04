@@ -9,6 +9,30 @@ npm install
 npm run dev
 ```
 
+## Build instructions (for AMO source review)
+
+This extension is built with Vite, which transpiles TypeScript, bundles
+modules, and minifies output, so Mozilla requires the unprocessed source
+alongside the signed build.
+
+**Build environment:**
+
+- OS: any (Linux, macOS, Windows) — the build is pure Node/npm, no native
+  dependencies
+- Node.js: v22.x (tested with v22.23.1)
+- npm: v10.x (tested with v10.9.8)
+
+**Steps to produce an exact copy of the reviewed build:**
+
+```bash
+npm install    # installs exact versions pinned in package-lock.json
+npm run build  # tsc -b && vite build — outputs to dist/
+```
+
+`dist/` is the artifact that gets zipped and submitted as the extension
+package. No other manual steps, environment variables, or secrets are
+involved.
+
 ## Scripts
 
 | Script              | Description                          |
