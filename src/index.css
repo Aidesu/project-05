@@ -91,6 +91,19 @@
 }
 
 /*
+ * The theme's own colours under a second name, captured here before the
+ * `data-on-bg` block below can shadow them. `var()` resolves against the
+ * element it is declared on, so what descendants inherit is the theme value,
+ * whatever the background does to `--foreground` further down the tree.
+ */
+:root,
+.dark {
+  --surface-foreground: var(--foreground);
+  --surface-muted-foreground: var(--muted-foreground);
+  --surface-border: var(--border);
+}
+
+/*
  * Content that sits directly on the customisable background (header, board,
  * weather card) has no opaque surface behind itso its text must follow the
  * background's own lightness, not the light/dark theme's. `data-on-bg` is set
@@ -107,6 +120,30 @@
   --foreground: oklch(0.985 0 0);
   --muted-foreground: oklch(0.75 0 0);
   --border: oklch(1 0 0 / 15%);
+}
+
+/*
+ * A card *is* an opaque surface: its text sits on the card, not on the
+ * wallpaper, so inside one the theme's colours go back — otherwise a dark
+ * wallpaper would put pale grey type on a white card.
+ */
+[data-on-bg] [data-slot="card"] {
+  --foreground: var(--surface-foreground);
+  --muted-foreground: var(--surface-muted-foreground);
+  --border: var(--surface-border);
+}
+
+/*
+ * Scrolls, but shows no scrollbar: the news grid is the page's only scrolling
+ * region, and a bar down its edge would be the one piece of chrome on a page
+ * that otherwise sits straight on the wallpaper.
+ */
+@utility scrollbar-none {
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /*
