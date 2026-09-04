@@ -4,6 +4,7 @@ import { BackgroundLayer } from "@/features/background/background-layer"
 import { useBackgroundContrast } from "@/features/background/use-background-contrast"
 import { ChecklistCard } from "@/features/checklist/checklist-card"
 import { Greeting } from "@/features/greeting/greeting"
+import { NewsFeed } from "@/features/news/news-feed"
 import { SiteBoard } from "@/features/sites/site-board"
 import { WeatherCard } from "@/features/weather/weather-card"
 
@@ -11,18 +12,23 @@ export default function App() {
   const contrast = useBackgroundContrast()
 
   return (
-    <div className="min-h-svh">
+    // The page is exactly one viewport and never scrolls: the feed is the one
+    // thing that grows, and it scrolls inside itself.
+    <div className="h-svh overflow-hidden">
       <BackgroundLayer />
       {/* Only this partnot the background layer or the Toasterneeds to
           flip with the background's lightness: everything here sits
           directly on it with no opaque surface behind. */}
-      <div data-on-bg={contrast ?? undefined}>
+      <div className="flex h-full flex-col" data-on-bg={contrast ?? undefined}>
         <Header />
         <WeatherCard />
         <ChecklistCard />
-        <main className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-16 pb-10">
+        {/* Greeting and board take the height they need; the last row — the
+            feed — takes whatever is left. */}
+        <main className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-8 px-6 pt-12 pb-3">
           <Greeting />
           <SiteBoard />
+          <NewsFeed />
         </main>
       </div>
       <Toaster />

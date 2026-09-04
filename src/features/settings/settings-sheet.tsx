@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet"
 import { BackgroundSettings } from "@/features/background/background-settings"
 import { ChecklistSettings } from "@/features/checklist/checklist-settings"
+import { NewsSettings } from "@/features/news/news-settings"
 import { SitesSettings } from "@/features/sites/sites-settings"
 import { WeatherSettings } from "@/features/weather/weather-settings"
 
@@ -62,6 +63,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           <SitesSettings />
           <WeatherSettings />
           <ChecklistSettings />
+          <NewsSettings />
         </div>
       </SheetContent>
     </Sheet>
