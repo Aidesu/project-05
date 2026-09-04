@@ -10,11 +10,28 @@ import { putAsset } from "@/lib/asset-store"
 import { normalizeUrl } from "@/lib/url"
 
 import { useBackgroundStore } from "./background-store"
-import { RgbSliders } from "./color-slider"
+import { RgbSliders, TrackSlider } from "./color-slider"
 import { GradientEditor } from "./gradient-editor"
 import { GradientSurface } from "./gradient-surface"
+import { MediaFitPicker } from "./media-fit-picker"
 import { COLOR_SWATCHES } from "./presets"
-import type { BackgroundKind, GradientSpec } from "./types"
+import { DEFAULT_MEDIA_EFFECTS, type BackgroundKind, type GradientSpec, type MediaEffects } from "./types"
+import { useMediaAccentColor } from "./use-media-accent-color"
+
+const NEUTRAL_TRACK = "linear-gradient(to right, var(--muted), var(--foreground))"
+
+const EFFECT_SLIDERS: {
+  key: keyof MediaEffects
+  label: string
+  ariaLabel: string
+  max: number
+  suffix: string
+}[] = [
+  { key: "blur", label: "Blur", ariaLabel: "Blur", max: 20, suffix: "px" },
+  { key: "dim", label: "Dark", ariaLabel: "Darken", max: 100, suffix: "%" },
+  { key: "grayscale", label: "Gray", ariaLabel: "Grayscale", max: 100, suffix: "%" },
+  { key: "saturate", label: "Sat", ariaLabel: "Saturation", max: 200, suffix: "%" },
+]
 
 const KINDS: { value: BackgroundKind; label: string }[] = [
   { value: "gradient", label: "Gradient" },
@@ -30,10 +47,17 @@ export function BackgroundSettings() {
   const background = useBackgroundStore((state) => state.background)
   const gradients = useBackgroundStore((state) => state.gradients)
   const gradientAnimated = useBackgroundStore((state) => state.gradientAnimated)
+  const mediaEffects = useBackgroundStore((state) => state.mediaEffects)
+  const mediaFit = useBackgroundStore((state) => state.mediaFit)
+  const mediaPosition = useBackgroundStore((state) => state.mediaPosition)
   const setBackground = useBackgroundStore((state) => state.setBackground)
   const setGradientAnimated = useBackgroundStore((state) => state.setGradientAnimated)
+  const setMediaFit = useBackgroundStore((state) => state.setMediaFit)
+  const setMediaPosition = useBackgroundStore((state) => state.setMediaPosition)
+  const setMediaEffects = useBackgroundStore((state) => state.setMediaEffects)
   const saveGradient = useBackgroundStore((state) => state.saveGradient)
   const resetGradients = useBackgroundStore((state) => state.resetGradients)
+  const mediaAccentColor = useMediaAccentColor()
 
   const [kind, setKind] = useState<BackgroundKind>(background.kind)
   const [mediaUrl, setMediaUrl] = useState("")
@@ -236,6 +260,44 @@ export function BackgroundSettings() {
             />
             <Button size="sm" onClick={() => applyUrl(kind)}>
               Apply
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between border-t pt-3">
+            <span className="text-sm">Fit</span>
+            <MediaFitPicker
+              value={mediaFit}
+              onChange={setMediaFit}
+              position={mediaPosition}
+              onPositionChange={setMediaPosition}
+              accentColor={mediaAccentColor}
+            />
+          </div>
+
+          <div className="grid gap-2">
+            {EFFECT_SLIDERS.map(({ key, label, ariaLabel, max, suffix }) => (
+              <TrackSlider
+                key={key}
+                label={label}
+                ariaLabel={ariaLabel}
+                value={mediaEffects[key]}
+                max={max}
+                suffix={suffix}
+                trackImage={NEUTRAL_TRACK}
+                onChange={(value) => setMediaEffects({ [key]: value })}
+              />
+            ))}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="justify-self-start"
+              onClick={() => {
+                setMediaEffects(DEFAULT_MEDIA_EFFECTS)
+                toast.success("Effects reset.")
+              }}
+            >
+              <RotateCcw />
+              Reset effects
             </Button>
           </div>
         </div>

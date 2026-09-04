@@ -81,6 +81,13 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Tailwind's preflight resets buttons to the OS default arrow cursor;
+     every button here is clickable, so bring the pointer cursor back. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
 }
 
 /*

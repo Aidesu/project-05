@@ -23,7 +23,10 @@ export const useWeatherStore = create<WeatherState>()(
     (set) => ({
       enabled: false,
       position: "bottom-right",
-      locationMode: "geo",
+      // Manual by default: turning the card on shouldn't itself trigger a
+      // browser geolocation promptthat's only fired once the user opts
+      // into "My location" themselves.
+      locationMode: "manual",
       manualLocation: null,
 
       setEnabled: (enabled) => set({ enabled }),
@@ -40,7 +43,7 @@ export const useWeatherStore = create<WeatherState>()(
         return {
           enabled: state?.enabled ?? false,
           position: version < 2 ? "bottom-right" : (state?.position ?? "bottom-right"),
-          locationMode: state?.locationMode ?? "geo",
+          locationMode: state?.locationMode ?? "manual",
           manualLocation: state?.manualLocation ?? null,
         }
       },

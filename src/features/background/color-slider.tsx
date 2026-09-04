@@ -29,7 +29,7 @@ export function TrackSlider({
 }: TrackSliderProps) {
   return (
     <div className="flex items-center gap-2">
-      <span className="w-4 shrink-0 text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="w-9 shrink-0 text-xs font-medium text-muted-foreground">{label}</span>
       <input
         type="range"
         min={min}

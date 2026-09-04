@@ -26,6 +26,41 @@ export type Background =
 
 export type BackgroundKind = Background["kind"]
 
+/** Visual filters applied to an image or video background, on top of the scrim. */
+export type MediaEffects = {
+  /** Gaussian blur, in px. */
+  blur: number
+  /** Dark scrim opacity, in percent — keeps text legible over busy media. */
+  dim: number
+  /** Desaturation, in percent. 0 is full colour, 100 is fully grayscale. */
+  grayscale: number
+  /** Colour intensity, in percent. 100 is unchanged, 0 drains it, 200 is vivid. */
+  saturate: number
+}
+
+export const DEFAULT_MEDIA_EFFECTS: MediaEffects = {
+  blur: 0,
+  dim: 50,
+  grayscale: 0,
+  saturate: 100,
+}
+
+/**
+ * How an image or video fills its layer — the same idea as `object-fit`,
+ * named for what it looks like rather than the CSS keyword.
+ */
+export type MediaFit = "cover" | "contain" | "stretch" | "center"
+
+export const DEFAULT_MEDIA_FIT: MediaFit = "cover"
+
+/**
+ * Vertical crop anchor for `cover` — which edge of the picture survives
+ * being cropped to fill the layer.
+ */
+export type MediaPosition = "top" | "center" | "bottom"
+
+export const DEFAULT_MEDIA_POSITION: MediaPosition = "center"
+
 /** The IndexedDB asset a background holds, when it holds one. */
 export function assetIdOf(background: Background): string | null {
   if (background.kind !== "image" && background.kind !== "video") return null

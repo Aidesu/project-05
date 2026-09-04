@@ -1,61 +1,48 @@
-import { useEffect, useState } from "react"
-
-import { getAsset } from "@/lib/asset-store"
+import type { CSSProperties } from "react"
 
 import { useBackgroundStore } from "./background-store"
 import { GradientSurface } from "./gradient-surface"
-import { assetIdOf, type Background } from "./types"
+import { useMediaSrc } from "./use-media-src"
+import type { MediaFit } from "./types"
 
-/**
- * Resolves an uploaded background to an object URL, revoking the previous one.
- * Returns `null` until the blob is read, and for URL-based backgrounds.
- */
-function useUploadedAssetUrl(background: Background): string | null {
-  const assetId = assetIdOf(background)
-  const [loaded, setLoaded] = useState<{ id: string; url: string } | null>(null)
-
-  useEffect(() => {
-    if (!assetId) return
-
-    let objectUrl: string | null = null
-    let cancelled = false
-
-    getAsset(assetId)
-      .then((blob) => {
-        if (cancelled || !blob) return
-        objectUrl = URL.createObjectURL(blob)
-        setLoaded({ id: assetId, url: objectUrl })
-      })
-      .catch(() => {})
-
-    return () => {
-      cancelled = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [assetId])
-
-  // Derived, so a stale URL is never shown for the wrong asset.
-  return loaded && loaded.id === assetId ? loaded.url : null
+/** `background-size` for each fit mode, `object-fit` shares the same keywords bar `stretch`. */
+const BACKGROUND_SIZE: Record<MediaFit, string> = {
+  cover: "cover",
+  contain: "contain",
+  stretch: "100% 100%",
+  center: "auto",
 }
-
-function mediaSrc(background: Background, uploadedUrl: string | null): string | null {
-  if (background.kind !== "image" && background.kind !== "video") return null
-  return background.source.type === "url" ? background.source.url : uploadedUrl
+const OBJECT_FIT: Record<MediaFit, CSSProperties["objectFit"]> = {
+  cover: "cover",
+  contain: "contain",
+  stretch: "fill",
+  center: "none",
 }
 
 export function BackgroundLayer() {
   const background = useBackgroundStore((state) => state.background)
   const gradients = useBackgroundStore((state) => state.gradients)
   const gradientAnimated = useBackgroundStore((state) => state.gradientAnimated)
-  const uploadedUrl = useUploadedAssetUrl(background)
+  const mediaEffects = useBackgroundStore((state) => state.mediaEffects)
+  const mediaFit = useBackgroundStore((state) => state.mediaFit)
+  const mediaPosition = useBackgroundStore((state) => state.mediaPosition)
+  const src = useMediaSrc(background)
 
   if (background.kind === "none") return null
 
-  const src = mediaSrc(background, uploadedUrl)
   const gradient =
     background.kind === "gradient"
       ? gradients.find((candidate) => candidate.id === background.preset)
       : undefined
+  const isMedia = background.kind === "image" || background.kind === "video"
+  const filter = isMedia
+    ? `blur(${mediaEffects.blur}px) grayscale(${mediaEffects.grayscale}%) saturate(${mediaEffects.saturate}%)`
+    : undefined
+  // Only `cover` bleeds past every edge, so it's the only mode that needs the
+  // extra scale to keep a blur radius from showing the layer's own edge.
+  const scaleForBlur = mediaFit === "cover" ? "scale-110" : ""
+  // Only meaningful once `cover` has actually cropped something.
+  const anchor = mediaFit === "cover" ? mediaPosition : "center"
 
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -69,8 +56,13 @@ export function BackgroundLayer() {
 
       {background.kind === "image" && src && (
         <div
-          className="size-full bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: `url("${src}")` }}
+          className={`size-full bg-no-repeat ${scaleForBlur}`}
+          style={{
+            backgroundImage: `url("${src}")`,
+            backgroundSize: BACKGROUND_SIZE[mediaFit],
+            backgroundPosition: `center ${anchor}`,
+            filter,
+          }}
         />
       )}
 
@@ -84,14 +76,15 @@ export function BackgroundLayer() {
           muted
           loop
           playsInline
-          className="size-full object-cover"
+          className={`size-full ${scaleForBlur}`}
+          style={{ objectFit: OBJECT_FIT[mediaFit], objectPosition: `center ${anchor}`, filter }}
         />
       )}
 
       {/* Photos and video carry their own contrast; a scrim keeps the board
           legible over whatever the person picked. */}
-      {(background.kind === "image" || background.kind === "video") && (
-        <div className="absolute inset-0 bg-background/50" />
+      {isMedia && (
+        <div className="absolute inset-0 bg-background" style={{ opacity: mediaEffects.dim / 100 }} />
       )}
     </div>
   )
