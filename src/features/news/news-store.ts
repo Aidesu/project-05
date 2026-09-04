@@ -12,7 +12,8 @@ export const ALL_CATEGORIES = "__all__"
 
 export type NewsTab = NewsCategoryId | typeof ALL_CATEGORIES
 
-type NewsState = {
+/** The persisted half of the store: what a config file carries. */
+export type NewsConfig = {
   /** Whether the feed is shown at all. */
   enabled: boolean
   /** Which category tabs appear, kept in the order they're declared. */
@@ -20,9 +21,14 @@ type NewsState = {
   /** The tab the feed opens on. A category dropped in settings is ignored
    * rather than corrected here — the feed falls back to the first one left. */
   activeCategory: NewsTab
+}
+
+type NewsState = NewsConfig & {
   setEnabled: (enabled: boolean) => void
   toggleCategory: (id: NewsCategoryId) => void
   setActiveCategory: (id: NewsTab) => void
+  /** Wholesale replacement from an imported config file (`@/features/config`). */
+  importConfig: (config: NewsConfig) => void
 }
 
 const DEFAULT_CATEGORIES: NewsCategoryId[] = ["world", "tech", "space"]
@@ -49,6 +55,8 @@ export const useNewsStore = create<NewsState>()(
             ),
           }
         }),
+
+      importConfig: (config) => set(config),
     }),
     {
       name: "mainboard.news",

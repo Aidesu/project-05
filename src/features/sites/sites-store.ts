@@ -11,17 +11,16 @@ export type SiteResult =
   | { ok: true; site: Site }
   | { ok: false; error: string }
 
-export type ImportSitesResult = { added: number; skipped: number }
-
 type SitesState = {
   sites: Site[]
   addSite: (draft: SiteDraft) => SiteResult
   updateSite: (id: string, draft: SiteDraft) => SiteResult
   removeSite: (id: string) => void
-  /** Bulk `addSite`: each draft goes through the same normalisation and
-   * dedup check, so an imported site already on the board is silently
-   * skipped rather than duplicated. */
-  importSites: (drafts: SiteDraft[]) => ImportSitesResult
+  /** Wholesale replacement from an imported config file (`@/features/config`):
+   * the board ends up as the file describes it, in the file's order, rather
+   * than merged into what was already there. Each draft still goes through
+   * the same normalisation and dedup check as `addSite`. */
+  importConfig: (drafts: SiteDraft[]) => void
   /** Commits the final position from a completed drag-and-drop reorder.
    * Board order (the array order) is the single source of truth for display
    * orderthe live preview while dragging is dnd-kit's, not stored here. */
@@ -114,9 +113,39 @@ export const useSitesStore = create<SitesState>()(
         if (assetId) void deleteAsset(assetId).catch(() => {})
       },
 
-      importSites: (drafts) => {
-        const added = drafts.filter((draft) => get().addSite(draft).ok).length
-        return { added, skipped: drafts.length - added }
+      importConfig: (drafts) => {
+        const now = Date.now()
+        const urls = new Set<string>()
+        const sites: Site[] = []
+
+        for (const draft of drafts) {
+          const url = normalizeUrl(draft.url)
+          if (!url || urls.has(url)) continue
+          urls.add(url)
+
+          sites.push({
+            id: crypto.randomUUID(),
+            url,
+            title: draft.title.trim() || hostnameOf(url),
+            description: draft.description.trim() || undefined,
+            tags: cleanTags(draft.tags),
+            hidden: draft.hidden,
+            icon: draft.icon,
+            createdAt: now,
+            updatedAt: now,
+          })
+        }
+
+        const replaced = get().sites
+        set({ sites })
+
+        // The icons the old board held are unreachable now unless the new one
+        // happens to point at them too.
+        const kept = new Set(sites.map((site) => iconAssetIdOf(site.icon)))
+        for (const site of replaced) {
+          const assetId = iconAssetIdOf(site.icon)
+          if (assetId && !kept.has(assetId)) void deleteAsset(assetId).catch(() => {})
+        }
       },
 
       reorderSite: (activeId, overId) => {

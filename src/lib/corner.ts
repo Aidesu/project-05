@@ -1,4 +1,7 @@
-export type Corner = "top-left" | "top-right" | "bottom-left" | "bottom-right"
+/** Declared as a list so a config file can be checked against it. */
+export const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"] as const
+
+export type Corner = (typeof CORNERS)[number]
 
 // Top corners sit below the header; bottom corners just clear the edge.
 export const CORNER_CLASSES: Record<Corner, string> = {

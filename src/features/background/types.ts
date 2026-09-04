@@ -49,7 +49,9 @@ export const DEFAULT_MEDIA_EFFECTS: MediaEffects = {
  * How an image or video fills its layer — the same idea as `object-fit`,
  * named for what it looks like rather than the CSS keyword.
  */
-export type MediaFit = "cover" | "contain" | "stretch" | "center"
+export const MEDIA_FITS = ["cover", "contain", "stretch", "center"] as const
+
+export type MediaFit = (typeof MEDIA_FITS)[number]
 
 export const DEFAULT_MEDIA_FIT: MediaFit = "cover"
 
@@ -57,7 +59,9 @@ export const DEFAULT_MEDIA_FIT: MediaFit = "cover"
  * Vertical crop anchor for `cover` — which edge of the picture survives
  * being cropped to fill the layer.
  */
-export type MediaPosition = "top" | "center" | "bottom"
+export const MEDIA_POSITIONS = ["top", "center", "bottom"] as const
+
+export type MediaPosition = (typeof MEDIA_POSITIONS)[number]
 
 export const DEFAULT_MEDIA_POSITION: MediaPosition = "center"
 

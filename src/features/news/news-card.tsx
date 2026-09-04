@@ -76,9 +76,13 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
           seen && "border-border/25 bg-card/55"
         )}
       >
-        {/* Two fifths to the picture, the rest to the words: the split holds
-            at every card height, so nothing is ever cut off mid-line. */}
-        <div className={cn("h-2/5 shrink-0", seen && "opacity-55 grayscale-[40%]")}>
+        {/* Three fifths to the picture, two to the words. At two fifths the
+            frame came out around 2.8:1 against a column that never narrows
+            past 17.5rem — wide enough that `object-cover` cropped every
+            portrait to a letterbox strip. Three fifths lands between 16:9 and
+            3:2 across the whole card range, and the words still fit: the
+            headline is all that's left down there. */}
+        <div className={cn("h-3/5 shrink-0", seen && "opacity-55 grayscale-[40%]")}>
           {image ? (
             <div className="h-full overflow-hidden bg-muted">
               <img
@@ -94,7 +98,7 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
           )}
         </div>
 
-        <div className="grid min-h-0 flex-1 content-start gap-1.5 overflow-hidden p-3.5">
+        <div className="grid min-h-0 flex-1 content-start gap-1.5 overflow-hidden p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <img
               src={faviconUrl(article.url, 32)}
@@ -113,23 +117,19 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
             )}
           </div>
 
-          {/* Sources with no standfirst (Wikipedia, HN) give the headline the
-              room the summary would have taken, so the card fills either way. */}
+          {/* The headline alone. The standfirst used to sit under it in two
+              clamped lines, which was rarely a whole sentence and never the
+              story — and the dialog this card opens carries it in full, next
+              to the picture and the source's own facts. So the card asks the
+              one question and leaves the answering to the dialog. */}
           <h3
             className={cn(
-              "text-sm leading-snug font-medium",
-              article.summary ? "line-clamp-2" : "line-clamp-3",
+              "line-clamp-2 text-sm leading-snug font-medium",
               seen && "font-normal text-muted-foreground"
             )}
           >
             {article.title}
           </h3>
-
-          {article.summary && (
-            <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-              {article.summary}
-            </p>
-          )}
         </div>
       </Card>
     </button>

@@ -3,7 +3,8 @@ import { persist } from "zustand/middleware"
 
 import type { LocationMode, ManualLocation, WeatherPosition } from "./types"
 
-type WeatherState = {
+/** The persisted half of the store: what a config file carries. */
+export type WeatherConfig = {
   /** Whether the floating card is shown at all. */
   enabled: boolean
   /** Which corner of the viewport the card floats in. */
@@ -12,10 +13,15 @@ type WeatherState = {
    * fallback when `geo` fails (permission denied, unsupported, timeout). */
   locationMode: LocationMode
   manualLocation: ManualLocation | null
+}
+
+type WeatherState = WeatherConfig & {
   setEnabled: (enabled: boolean) => void
   setPosition: (position: WeatherPosition) => void
   setLocationMode: (mode: LocationMode) => void
   setManualLocation: (location: ManualLocation | null) => void
+  /** Wholesale replacement from an imported config file (`@/features/config`). */
+  importConfig: (config: WeatherConfig) => void
 }
 
 export const useWeatherStore = create<WeatherState>()(
@@ -33,6 +39,8 @@ export const useWeatherStore = create<WeatherState>()(
       setPosition: (position) => set({ position }),
       setLocationMode: (locationMode) => set({ locationMode }),
       setManualLocation: (manualLocation) => set({ manualLocation }),
+
+      importConfig: (config) => set(config),
     }),
     {
       name: "mainboard.weather",

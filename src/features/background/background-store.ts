@@ -16,7 +16,8 @@ import {
   type MediaPosition,
 } from "./types"
 
-type BackgroundState = {
+/** The persisted half of the store: what a config file carries. */
+export type BackgroundConfig = {
   background: Background
   /** The built-in presets, each of which stays editable. */
   gradients: GradientSpec[]
@@ -28,6 +29,9 @@ type BackgroundState = {
   mediaFit: MediaFit
   /** Crop anchor for `cover` — which edge survives the crop. */
   mediaPosition: MediaPosition
+}
+
+type BackgroundState = BackgroundConfig & {
   setBackground: (background: Background) => void
   setGradientAnimated: (animated: boolean) => void
   setMediaEffects: (effects: Partial<MediaEffects>) => void
@@ -35,6 +39,8 @@ type BackgroundState = {
   setMediaPosition: (position: MediaPosition) => void
   saveGradient: (spec: GradientSpec) => void
   resetGradients: () => void
+  /** Wholesale replacement from an imported config file (`@/features/config`). */
+  importConfig: (config: BackgroundConfig) => void
 }
 
 const NONE: Background = { kind: "none" }
@@ -93,11 +99,22 @@ export const useBackgroundStore = create<BackgroundState>()(
 
           return { gradients: BUILT_IN_GRADIENTS, background: orphaned ? DEFAULT_BACKGROUND : current }
         }),
+
+      importConfig: (config) => {
+        const previousAssetId = assetIdOf(get().background)
+        set(config)
+
+        // Same contract as `setBackground`: whatever upload the incoming
+        // config doesn't point at is now an orphan in IndexedDB.
+        if (previousAssetId && previousAssetId !== assetIdOf(config.background)) {
+          void deleteAsset(previousAssetId).catch(() => {})
+        }
+      },
     }),
     {
       name: "mainboard.background",
       version: 6,
-      partialize: (state) => ({
+      partialize: (state): BackgroundConfig => ({
         background: state.background,
         gradients: state.gradients,
         gradientAnimated: state.gradientAnimated,
