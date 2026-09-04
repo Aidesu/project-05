@@ -1,5 +1,7 @@
 import { useState } from "react"
-import { Pencil } from "lucide-react"
+import { useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { GripHorizontal, Pencil } from "lucide-react"
 
 import { hostnameOf } from "@/lib/url"
 import { cn } from "@/lib/utils"
@@ -26,16 +28,31 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
     setFaviconFailed(false)
   }
 
+  // dnd-kit owns the live reorder preview (transform/transition) and the
+  // drop math; this component only wires a handle to it, it doesn't
+  // implement any reordering itself.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: site.id,
+  })
+
   return (
-    <div className="group grid w-20 justify-items-center">
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        "group grid w-20 justify-items-center gap-0.5 rounded-2xl",
+        isDragging && "z-10 opacity-40"
+      )}
+    >
       <div className="relative">
         <a
           href={site.url}
           target="_blank"
           rel="noreferrer noopener"
+          draggable={false}
           title={hostnameOf(site.url)}
           className={cn(
-            "grid size-16 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "grid size-[54px] place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
             // A loaded favicon carries its own edgesonly the fallback
             // initial needs a border to read as a button.
             faviconFailed ? "border hover:border-foreground/30" : "hover:opacity-80"
@@ -50,11 +67,12 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
               <img
                 src={iconSrc}
                 alt=""
-                width={36}
-                height={36}
+                width={38}
+                height={38}
                 loading="lazy"
+                draggable={false}
                 onError={() => setFaviconFailed(true)}
-                className="size-9 rounded"
+                className="size-[38px] rounded"
               />
             )
           )}
@@ -71,6 +89,20 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
           <Pencil className="size-3.5" />
         </button>
       </div>
+
+      {/* The actual drag source, below the centered iconno background, so
+          it stays out of the way until you're looking for it. The space is
+          reserved even when invisible, so its fade-in on hover doesn't push
+          neighbouring bubbles around. */}
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder ${site.title}`}
+        className="grid size-3.5 touch-none cursor-grab place-items-center rounded text-muted-foreground/70 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing group-hover:opacity-100"
+      >
+        <GripHorizontal className="size-3.5" />
+      </button>
     </div>
   )
 }

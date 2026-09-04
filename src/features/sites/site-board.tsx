@@ -1,4 +1,14 @@
 import { useMemo, useState } from "react"
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -14,10 +24,18 @@ const ALL_FILTER = "__all__"
 
 export function SiteBoard() {
   const sites = useSitesStore((state) => state.sites)
+  const reorderSite = useSitesStore((state) => state.reorderSite)
 
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [editing, setEditing] = useState<Site | undefined>(undefined)
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  // A short activation distance keeps ordinary clicks (opening a site,
+  // pressing edit) from being swallowed as an accidental drag.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   const tags = useMemo(
     () => [...new Set(sites.flatMap((site) => site.tags))].sort(),
@@ -48,6 +66,13 @@ export function SiteBoard() {
   function openEdit(site: Site) {
     setEditing(site)
     setDialogOpen(true)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      reorderSite(String(active.id), String(over.id))
+    }
   }
 
   return (
@@ -84,7 +109,7 @@ export function SiteBoard() {
             type="button"
             onClick={openAdd}
             aria-label="Add a site"
-            className="grid size-16 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="grid size-[54px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             +
           </button>
@@ -96,9 +121,20 @@ export function SiteBoard() {
               theirs alone. Add sits outside that flow (absolute), so it never
               shifts where the sites themselves land. */}
           <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-2">
-            {visibleSites.map((site) => (
-              <SiteBubble key={site.id} site={site} onEdit={openEdit} />
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={visibleSites.map((site) => site.id)}
+                strategy={rectSortingStrategy}
+              >
+                {visibleSites.map((site) => (
+                  <SiteBubble key={site.id} site={site} onEdit={openEdit} />
+                ))}
+              </SortableContext>
+            </DndContext>
 
             {/* Hidden until the section is hoveredfocus-within too, so it
                 stays reachable by keyboard. */}
@@ -107,7 +143,7 @@ export function SiteBoard() {
                 type="button"
                 onClick={openAdd}
                 aria-label="Add a site"
-                className="grid size-16 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="grid size-[54px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 +
               </button>

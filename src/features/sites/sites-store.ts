@@ -1,3 +1,4 @@
+import { arrayMove } from "@dnd-kit/sortable"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
@@ -21,6 +22,10 @@ type SitesState = {
    * dedup check, so an imported site already on the board is silently
    * skipped rather than duplicated. */
   importSites: (drafts: SiteDraft[]) => ImportSitesResult
+  /** Commits the final position from a completed drag-and-drop reorder.
+   * Board order (the array order) is the single source of truth for display
+   * orderthe live preview while dragging is dnd-kit's, not stored here. */
+  reorderSite: (activeId: string, overId: string) => void
 }
 
 /** Trimmed, lower-cased, order-preserving, no duplicates. */
@@ -112,6 +117,18 @@ export const useSitesStore = create<SitesState>()(
       importSites: (drafts) => {
         const added = drafts.filter((draft) => get().addSite(draft).ok).length
         return { added, skipped: drafts.length - added }
+      },
+
+      reorderSite: (activeId, overId) => {
+        if (activeId === overId) return
+
+        set((state) => {
+          const fromIndex = state.sites.findIndex((site) => site.id === activeId)
+          const toIndex = state.sites.findIndex((site) => site.id === overId)
+          if (fromIndex === -1 || toIndex === -1) return state
+
+          return { sites: arrayMove(state.sites, fromIndex, toIndex) }
+        })
       },
     }),
     {
