@@ -1,10 +1,11 @@
 import { useState } from "react"
 import { Pencil } from "lucide-react"
 
-import { faviconUrl, hostnameOf } from "@/lib/url"
+import { hostnameOf } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
 import type { Site } from "./types"
+import { useSiteIconUrl } from "./use-site-icon"
 
 type SiteBubbleProps = {
   site: Site
@@ -12,7 +13,18 @@ type SiteBubbleProps = {
 }
 
 export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
+  const iconSrc = useSiteIconUrl(site.icon, site.url)
   const [faviconFailed, setFaviconFailed] = useState(false)
+
+  // A bubble stays mounted (keyed by site.id) across edits, so a fresh icon
+  // deserves a fresh chance rather than staying stuck on a past failure.
+  // Adjusted during render rather than in an effect, per the React docs'
+  // "storing information from previous renders" pattern.
+  const [trackedSrc, setTrackedSrc] = useState(iconSrc)
+  if (iconSrc !== trackedSrc) {
+    setTrackedSrc(iconSrc)
+    setFaviconFailed(false)
+  }
 
   return (
     <div className="group grid w-20 justify-items-center">
@@ -34,15 +46,17 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
               {site.title.charAt(0)}
             </span>
           ) : (
-            <img
-              src={faviconUrl(site.url)}
-              alt=""
-              width={36}
-              height={36}
-              loading="lazy"
-              onError={() => setFaviconFailed(true)}
-              className="size-9 rounded"
-            />
+            iconSrc && (
+              <img
+                src={iconSrc}
+                alt=""
+                width={36}
+                height={36}
+                loading="lazy"
+                onError={() => setFaviconFailed(true)}
+                className="size-9 rounded"
+              />
+            )
           )}
         </a>
 

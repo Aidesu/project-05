@@ -1,4 +1,5 @@
-import { useState, type ChangeEvent, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react"
+import { RotateCcw, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -23,10 +24,46 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { putAsset } from "@/lib/asset-store"
+import { normalizeUrl } from "@/lib/url"
 
 import { SiteTagsField } from "./site-tags-field"
 import { useSitesStore } from "./sites-store"
-import type { Site } from "./types"
+import type { Site, SiteIcon } from "./types"
+import { useSiteIconUrl } from "./use-site-icon"
+
+/** Kept well under the practical IndexedDB comfort zone for a single icon. */
+const MAX_ICON_UPLOAD_MB = 5
+
+/**
+ * What the icon control is showing, distinct from `SiteIcon`: "default"
+ * covers a never-customised icon, and "file" is a pending upload not yet
+ * written to IndexedDBthat only happens on save, so cancelling leaves no
+ * orphaned blob behind.
+ */
+type IconField =
+  | { type: "default" }
+  | { type: "url"; url: string }
+  | { type: "upload"; assetId: string }
+  | { type: "file"; file: File }
+
+function iconFieldOf(icon: SiteIcon | undefined): IconField {
+  if (!icon) return { type: "default" }
+  return icon
+}
+
+/** `null` when there's no pending file. */
+function useFilePreviewUrl(file: File | null): string | null {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [url])
+
+  return url
+}
 
 type SiteFormDialogProps = {
   open: boolean
@@ -54,6 +91,7 @@ function initialFields(site?: Site) {
     description: site?.description ?? "",
     tags: site?.tags ?? [],
     hidden: site?.hidden ?? false,
+    icon: iconFieldOf(site?.icon),
   }
 }
 
@@ -65,6 +103,16 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
   const [fields, setFields] = useState(() => initialFields(site))
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [iconUrlInput, setIconUrlInput] = useState("")
+  const [savingIcon, setSavingIcon] = useState(false)
+
+  const pendingFile = fields.icon.type === "file" ? fields.icon.file : null
+  const filePreview = useFilePreviewUrl(pendingFile)
+  const resolvedPreview = useSiteIconUrl(
+    fields.icon.type === "url" || fields.icon.type === "upload" ? fields.icon : undefined,
+    fields.url
+  )
+  const iconPreview = filePreview ?? resolvedPreview
 
   function bind(key: "url" | "title" | "description") {
     return (event: ChangeEvent<HTMLInputElement>) => {
@@ -74,8 +122,58 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
     }
   }
 
-  function handleSubmit(event: FormEvent) {
+  function handleIconFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = "" // so re-picking the same file still fires onChange
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Choose an image file.")
+      return
+    }
+    if (file.size > MAX_ICON_UPLOAD_MB * 1024 * 1024) {
+      toast.error(`File too large (max ${MAX_ICON_UPLOAD_MB} MB).`)
+      return
+    }
+
+    setFields((current) => ({ ...current, icon: { type: "file", file } }))
+  }
+
+  function applyIconUrl() {
+    const url = normalizeUrl(iconUrlInput)
+    if (!url) {
+      toast.error("Invalid address.")
+      return
+    }
+    setFields((current) => ({ ...current, icon: { type: "url", url } }))
+    setIconUrlInput("")
+  }
+
+  function resetIcon() {
+    setFields((current) => ({ ...current, icon: { type: "default" } }))
+    setIconUrlInput("")
+  }
+
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+
+    let icon: SiteIcon | undefined
+    if (fields.icon.type === "file") {
+      setSavingIcon(true)
+      try {
+        const assetId = await putAsset(fields.icon.file)
+        icon = { type: "upload", assetId }
+      } catch {
+        setSavingIcon(false)
+        setError("Could not save the icon image.")
+        return
+      }
+      setSavingIcon(false)
+    } else if (fields.icon.type === "default") {
+      icon = undefined
+    } else {
+      icon = fields.icon
+    }
 
     const draft = {
       url: fields.url,
@@ -83,6 +181,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
       description: fields.description,
       tags: fields.tags,
       hidden: fields.hidden,
+      icon,
     }
     const result = site ? updateSite(site.id, draft) : addSite(draft)
 
@@ -143,6 +242,64 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
           </div>
 
           <div className="grid gap-2">
+            <Label>Icon</Label>
+            <div className="flex items-center gap-3">
+              <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted">
+                {iconPreview ? (
+                  <img src={iconPreview} alt="" className="size-full object-cover" />
+                ) : (
+                  <span className="text-lg font-semibold uppercase text-muted-foreground">
+                    {(fields.title || fields.url).charAt(0)}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid flex-1 gap-2">
+                <div className="flex gap-2">
+                  <Button asChild variant="secondary" size="sm" disabled={savingIcon}>
+                    <label className="cursor-pointer">
+                      <Upload />
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                        onChange={handleIconFile}
+                        className="sr-only"
+                      />
+                    </label>
+                  </Button>
+                  {fields.icon.type !== "default" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetIcon}
+                      disabled={savingIcon}
+                    >
+                      <RotateCcw />
+                      Reset
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    value={iconUrlInput}
+                    onChange={(event) => setIconUrlInput(event.target.value)}
+                    placeholder="…or paste an image address"
+                    aria-label="Icon address"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  <Button type="button" size="sm" onClick={applyIconUrl} disabled={savingIcon}>
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="site-description">Note</Label>
             <Input
               id="site-description"
@@ -198,10 +355,12 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
             Delete
           </Button>
         )}
-        <Button type="button" variant="ghost" onClick={onDone}>
+        <Button type="button" variant="ghost" onClick={onDone} disabled={savingIcon}>
           Cancel
         </Button>
-        <Button type="submit">{site ? "Save" : "Add"}</Button>
+        <Button type="submit" disabled={savingIcon}>
+          {savingIcon ? "Saving…" : site ? "Save" : "Add"}
+        </Button>
       </DialogFooter>
 
       {site && (
