@@ -35,11 +35,12 @@ const CURRENT_EVENTS_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
 /**
  * Days walked back before giving up. Today's page fills in as the day goes on,
- * and a single topic ("Business and economy") can be a line or two a day, so a
- * filtered category needs several days to add up to a feed. The walk stops as
- * soon as there are enough stories, which for the unfiltered feed is day one.
+ * and a narrow topic ("Arts and culture") can be a line or two a day, so a
+ * filtered category needs a week or so to add up to a feed. The walk stops as
+ * soon as there are enough stories — day one, for the unfiltered feed — and
+ * the days it does read are shared with every other portal category.
  */
-const CURRENT_EVENTS_DAYS = 5
+const CURRENT_EVENTS_DAYS = 8
 
 /** Enough headlines to be worth scrolling; below it, another day is pulled in. */
 const CURRENT_EVENTS_MIN = 12
@@ -103,7 +104,7 @@ function collectStories(
   }
 }
 
-function parseCurrentEvents(html: string, publishedAt: number, topics: string[] | null) {
+function parseCurrentEvents(html: string, publishedAt: number): NewsArticle[] {
   const articles: NewsArticle[] = []
   const doc = new DOMParser().parseFromString(html, "text/html")
 
@@ -117,7 +118,6 @@ function parseCurrentEvents(html: string, publishedAt: number, topics: string[] 
       if (child.tagName === "P") {
         topic = child.textContent?.trim() || topic
       } else if (child.tagName === "UL") {
-        if (topics && !topics.includes(topic)) continue
         collectStories(child, topic, publishedAt, articles)
       }
     }
@@ -126,10 +126,57 @@ function parseCurrentEvents(html: string, publishedAt: number, topics: string[] 
   return articles
 }
 
-async function fetchCurrentEvents(
-  topics: string[] | null,
-  signal: AbortSignal
-): Promise<NewsArticle[]> {
+/**
+ * One day's stories, parsed once and shared by every category cut from the
+ * portal. Half a dozen topic feeds asking for the same five pages would be
+ * thirty requests to an API that answers a burst with 503s.
+ *
+ * Deliberately not given an abort signal: the day belongs to whoever asks for
+ * it next, so leaving a tab must not cancel a page another tab is waiting on.
+ * `useNews` drops the results of a request it no longer wants.
+ */
+const currentEventsDays = new Map<string, Promise<NewsArticle[]>>()
+
+function currentEventsDay(date: Date): Promise<NewsArticle[]> {
+  const page = portalPage(date)
+  const cached = currentEventsDays.get(page)
+  if (cached) return cached
+
+  const url = new URL(CURRENT_EVENTS_ENDPOINT)
+  url.searchParams.set("action", "parse")
+  url.searchParams.set("page", page)
+  url.searchParams.set("prop", "text")
+  url.searchParams.set("format", "json")
+  url.searchParams.set("formatversion", "2")
+  // Anonymous cross-origin access to the MediaWiki API.
+  url.searchParams.set("origin", "*")
+
+  const pending = fetchJson<{ parse?: { text: string } }>(url, new AbortController().signal)
+    .then((data) => {
+      // Today's page may not exist yet just after midnight UTC.
+      if (!data.parse) return []
+      // Noon UTC: the portal dates a day, not a minute, and this keeps
+      // "today" reading as today in every timezone.
+      const publishedAt = Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        12
+      )
+      return parseCurrentEvents(data.parse.text, publishedAt)
+    })
+    .catch((error: unknown) => {
+      // A failed day is not remembered, so the next tab retries it.
+      currentEventsDays.delete(page)
+      throw error
+    })
+
+  currentEventsDays.set(page, pending)
+  return pending
+}
+
+/** `topics` is `null` for the unfiltered feed, or the portal headings to keep. */
+async function fetchCurrentEvents(topics: string[] | null): Promise<NewsArticle[]> {
   const articles: NewsArticle[] = []
   const seen = new Set<string>()
   let failure: unknown = null
@@ -137,35 +184,19 @@ async function fetchCurrentEvents(
   for (let daysBack = 0; daysBack < CURRENT_EVENTS_DAYS; daysBack++) {
     const date = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
 
-    const url = new URL(CURRENT_EVENTS_ENDPOINT)
-    url.searchParams.set("action", "parse")
-    url.searchParams.set("page", portalPage(date))
-    url.searchParams.set("prop", "text")
-    url.searchParams.set("format", "json")
-    url.searchParams.set("formatversion", "2")
-    // Anonymous cross-origin access to the MediaWiki API.
-    url.searchParams.set("origin", "*")
-
-    let data: { parse?: { text: string } }
+    let day: NewsArticle[]
     try {
-      data = await fetchJson<{ parse?: { text: string } }>(url, signal)
+      day = await currentEventsDay(date)
     } catch (error) {
-      if (signal.aborted) throw error
       // One bad day doesn't sink the feed: the walk carries on and only
       // reports the failure if no day at all came back.
       failure ??= error
       continue
     }
 
-    // Today's page may not exist yet just after midnight UTC; that day is
-    // simply skipped rather than failing the whole feed.
-    if (!data.parse) continue
-
-    // Noon UTC: the portal dates a day, not a minute, and this keeps "today"
-    // reading as today in every timezone.
-    const publishedAt = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12)
-
-    for (const article of parseCurrentEvents(data.parse.text, publishedAt, topics)) {
+    for (const article of day) {
+      // The topic a story was filed under travels with it as its first fact.
+      if (topics && !topics.includes(article.facts?.[0] ?? "")) continue
       if (seen.has(article.url)) continue
       seen.add(article.url)
       articles.push(article)
@@ -179,18 +210,52 @@ async function fetchCurrentEvents(
   return articles.slice(0, PAGE_SIZE)
 }
 
-// --------------------------------------------------------- Tech newsrooms
+// ------------------------------------------------------------- Newsrooms
+
+type Newsroom = { host: string; label: string }
 
 /**
- * Tech desks that run WordPress and leave its REST API open with permissive
+ * Newsrooms that run WordPress and leave its REST API open with permissive
  * CORS — the only way to get real newsroom copy *with pictures* into the page
- * without a key or a proxy. Each publishes a featured image on every post.
+ * without a key or a proxy. Every host here was checked from a browser: the
+ * ones that refuse the request (Ars Technica, The Verge, Wired, most of the
+ * gaming and sports press) simply cannot be read from a page, whatever their
+ * RSS feed suggests.
  */
-const TECH_NEWSROOMS: { host: string; label: string }[] = [
-  { host: "techcrunch.com", label: "TechCrunch" },
-  { host: "hackaday.com", label: "Hackaday" },
-  { host: "9to5mac.com", label: "9to5Mac" },
-]
+const NEWSROOMS = {
+  tech: [
+    { host: "techcrunch.com", label: "TechCrunch" },
+    { host: "hackaday.com", label: "Hackaday" },
+    { host: "9to5mac.com", label: "9to5Mac" },
+    { host: "9to5google.com", label: "9to5Google" },
+  ],
+  gaming: [
+    { host: "www.gematsu.com", label: "Gematsu" },
+    { host: "nintendoeverything.com", label: "Nintendo Everything" },
+    { host: "wccftech.com", label: "Wccftech" },
+    { host: "automaton-media.com", label: "Automaton" },
+  ],
+  screen: [
+    { host: "variety.com", label: "Variety" },
+    { host: "deadline.com", label: "Deadline" },
+  ],
+  music: [
+    { host: "www.rollingstone.com", label: "Rolling Stone" },
+    { host: "www.billboard.com", label: "Billboard" },
+    { host: "consequence.net", label: "Consequence" },
+  ],
+  openSource: [
+    { host: "github.blog", label: "The GitHub Blog" },
+    { host: "www.omgubuntu.co.uk", label: "OMG! Ubuntu" },
+    { host: "blog.mozilla.org", label: "Mozilla" },
+  ],
+  energy: [{ host: "electrek.co", label: "Electrek" }],
+} satisfies Record<string, Newsroom[]>
+
+/** The publishers behind a category, for the credit line under the feed. */
+function newsroomCredits(newsrooms: Newsroom[]): string {
+  return newsrooms.map((newsroom) => newsroom.label).join(", ")
+}
 
 type WordPressPost = {
   id: number
@@ -224,7 +289,7 @@ function plainText(html: string): string {
 }
 
 async function fetchNewsroom(
-  { host, label }: { host: string; label: string },
+  { host, label }: Newsroom,
   signal: AbortSignal
 ): Promise<NewsArticle[]> {
   const url = new URL(`https://${host}/wp-json/wp/v2/posts`)
@@ -249,23 +314,25 @@ async function fetchNewsroom(
   }))
 }
 
-async function fetchTech(signal: AbortSignal): Promise<NewsArticle[]> {
-  const results = await Promise.allSettled(
-    TECH_NEWSROOMS.map((newsroom) => fetchNewsroom(newsroom, signal))
-  )
+function fetchNewsrooms(newsrooms: Newsroom[]) {
+  return async (signal: AbortSignal): Promise<NewsArticle[]> => {
+    const results = await Promise.allSettled(
+      newsrooms.map((newsroom) => fetchNewsroom(newsroom, signal))
+    )
 
-  const articles = results
-    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-    .sort((a, b) => b.publishedAt - a.publishedAt)
+    const articles = results
+      .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+      .sort((a, b) => b.publishedAt - a.publishedAt)
 
-  // One newsroom being down is a thinner feed, not a broken one; all three
-  // being down is worth reporting.
-  if (articles.length === 0) {
-    const failure = results.find((result) => result.status === "rejected")
-    if (failure?.status === "rejected") throw failure.reason
+    // One newsroom being down is a thinner feed, not a broken one; all of them
+    // being down is worth reporting.
+    if (articles.length === 0) {
+      const failure = results.find((result) => result.status === "rejected")
+      if (failure?.status === "rejected") throw failure.reason
+    }
+
+    return articles.slice(0, PAGE_SIZE)
   }
-
-  return articles.slice(0, PAGE_SIZE)
 }
 
 // ------------------------------------------------------------ Hacker News
@@ -383,32 +450,84 @@ async function fetchDev(signal: AbortSignal): Promise<NewsArticle[]> {
  * Every category is served by a free, key-less API with open CORS, so the feed
  * needs no backend and no credentials to ship inside the extension.
  */
+const PORTAL_CREDIT = "Wikipedia's current events portal"
+
 export const NEWS_CATEGORIES: NewsCategory[] = [
+  // ---- General news, cut out of the current events portal by its own topics.
   {
     id: "world",
     label: "World",
-    attribution: "Wikipedia's current events portal",
-    fetch: (signal) => fetchCurrentEvents(null, signal),
+    attribution: PORTAL_CREDIT,
+    fetch: () => fetchCurrentEvents(null),
+  },
+  {
+    id: "geopolitics",
+    label: "Geopolitics",
+    attribution: PORTAL_CREDIT,
+    fetch: () =>
+      fetchCurrentEvents([
+        "International relations",
+        "Politics and elections",
+        "Armed conflicts and attacks",
+      ]),
   },
   {
     id: "business",
     label: "Business",
-    attribution: "Wikipedia's current events portal",
-    fetch: (signal) => fetchCurrentEvents(["Business and economy"], signal),
+    attribution: PORTAL_CREDIT,
+    fetch: () => fetchCurrentEvents(["Business and economy"]),
   },
   {
     id: "science",
     label: "Science",
-    attribution: "Wikipedia's current events portal",
-    fetch: (signal) =>
-      fetchCurrentEvents(["Science and technology", "Health and environment"], signal),
+    attribution: PORTAL_CREDIT,
+    fetch: () => fetchCurrentEvents(["Science and technology", "Health and environment"]),
   },
+  {
+    id: "sports",
+    label: "Sports",
+    attribution: PORTAL_CREDIT,
+    fetch: () => fetchCurrentEvents(["Sports"]),
+  },
+  // ---- Desks with their own newsrooms, pictures and standfirsts.
   {
     id: "tech",
     label: "Tech",
-    attribution: TECH_NEWSROOMS.map((newsroom) => newsroom.label).join(", "),
-    fetch: fetchTech,
+    attribution: newsroomCredits(NEWSROOMS.tech),
+    fetch: fetchNewsrooms(NEWSROOMS.tech),
   },
+  {
+    id: "gaming",
+    label: "Gaming",
+    attribution: newsroomCredits(NEWSROOMS.gaming),
+    fetch: fetchNewsrooms(NEWSROOMS.gaming),
+  },
+  {
+    id: "screen",
+    label: "Film & TV",
+    attribution: newsroomCredits(NEWSROOMS.screen),
+    fetch: fetchNewsrooms(NEWSROOMS.screen),
+  },
+  {
+    id: "music",
+    label: "Music",
+    attribution: newsroomCredits(NEWSROOMS.music),
+    fetch: fetchNewsrooms(NEWSROOMS.music),
+  },
+  {
+    id: "open-source",
+    label: "Open source",
+    attribution: newsroomCredits(NEWSROOMS.openSource),
+    fetch: fetchNewsrooms(NEWSROOMS.openSource),
+  },
+  {
+    id: "energy",
+    label: "Energy",
+    attribution: newsroomCredits(NEWSROOMS.energy),
+    fetch: fetchNewsrooms(NEWSROOMS.energy),
+  },
+
+  // ---- Single-API desks.
   {
     id: "space",
     label: "Space",
