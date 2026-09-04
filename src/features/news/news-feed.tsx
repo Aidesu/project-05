@@ -27,19 +27,26 @@ const WHEEL_EASING = 0.2
  */
 const NEWS_GRID = "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-3"
 
-/** Whether the wheel landed on something that already scrolls itself. */
-function scrollsItself(target: EventTarget | null): boolean {
+/**
+ * The element the browser will scroll for a wheel landing here, or null when
+ * nothing under the pointer scrolls itself. Returns the node rather than a
+ * boolean because it matters *which* one it is: a wheel the browser sends to
+ * the feed has to call off our own glide, or the two fight over `scrollTop`.
+ */
+function scrollerAt(target: EventTarget | null): Element | null {
   let node = target instanceof Element ? target : null
 
   while (node) {
-    const { overflowY } = getComputedStyle(node)
-    if ((overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight) {
-      return true
+    // The cheap property read first: most nodes on the way up don't overflow,
+    // and `getComputedStyle` on every one of them runs on every wheel tick.
+    if (node.scrollHeight > node.clientHeight) {
+      const { overflowY } = getComputedStyle(node)
+      if (overflowY === "auto" || overflowY === "scroll") return node
     }
     node = node.parentElement
   }
 
-  return false
+  return null
 }
 
 /**
@@ -85,57 +92,101 @@ export function NewsFeed() {
     // `scrollTop + delta` here would land in visible steps beside it. So a
     // forwarded wheel sets a target and a frame loop eases towards it, which
     // is the same movement the native one makes.
+    //
+    // The two must never run at once. Whenever the browser takes the list over
+    // — the pointer crosses back onto the grid, a card takes focus, the list is
+    // swapped for another category's — the glide lets go on the spot, rather
+    // than dragging `scrollTop` back to a target set before any of that.
     let target: number | null = null
     let frame = 0
-    const eases = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    /** The `scrollTop` the glide itself last wrote, or -1 between glides. */
+    let written = -1
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)")
+
+    function stop() {
+      if (frame) cancelAnimationFrame(frame)
+      frame = 0
+      target = null
+      written = -1
+    }
 
     function step() {
       const list = listRef.current
-      if (!list || target === null) {
-        frame = 0
-        return
-      }
+      // No list left to scroll: the category switched, or the feed went back
+      // to placeholders. The target belonged to that list, so it goes too.
+      if (!list || target === null) return stop()
+
+      // Someone else moved the list — a native wheel over the grid, a focused
+      // card scrolled into view — and they get the last word.
+      if (written >= 0 && Math.abs(list.scrollTop - written) > 1) return stop()
 
       // Re-clamped every frame: switching category mid-glide can leave the
       // target past the end of a shorter list.
-      target = Math.min(target, list.scrollHeight - list.clientHeight)
+      target = Math.min(target, Math.max(list.scrollHeight - list.clientHeight, 0))
       const distance = target - list.scrollTop
 
       if (Math.abs(distance) < 1) {
         list.scrollTop = target
-        target = null
-        frame = 0
-        return
+        return stop()
       }
 
-      list.scrollTop += distance * WHEEL_EASING
+      // At least a whole pixel per frame: an eased step finer than the browser's
+      // scroll granularity would round to nothing and idle here forever.
+      const easedStep = Math.abs(distance) * WHEEL_EASING
+      list.scrollTop += Math.sign(distance) * Math.max(easedStep, 1)
+      // Read back rather than kept: the browser clamps and rounds what it took.
+      written = list.scrollTop
       frame = requestAnimationFrame(step)
     }
 
     function forward(event: WheelEvent) {
       const list = listRef.current
-      if (!list || scrollsItself(event.target)) return
+      if (!list) return
 
-      // Line-mode deltas (a classic mouse on Firefox) come in lines, not pixels.
-      const delta =
-        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaY
+      // A dialog or the settings sheet is open: Radix marks the page behind it
+      // `aria-hidden`, and nothing back there should move — not even when the
+      // panel itself is too short to have a scrollbar of its own to catch the
+      // wheel.
+      if (list.closest("[aria-hidden='true']")) return stop()
 
-      if (!eases) {
-        list.scrollTop += delta
+      const scroller = scrollerAt(event.target)
+      if (scroller) {
+        // The browser is about to scroll the feed itself. Hand it over: a glide
+        // still easing towards an older target would undo the tick.
+        if (scroller === list) stop()
+        return
+      }
+
+      // Non-pixel deltas: lines on a classic mouse under Firefox, pages on the
+      // few devices that send them.
+      let delta = event.deltaY
+      if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16
+      else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) delta *= list.clientHeight
+
+      const limit = Math.max(list.scrollHeight - list.clientHeight, 0)
+
+      // Read per event, not once at mount: the setting can change mid-session.
+      if (reduced.matches) {
+        stop()
+        list.scrollTop = Math.min(Math.max(list.scrollTop + delta, 0), limit)
         return
       }
 
       // Ticks accumulate onto the target rather than restarting from where the
-      // glide currently is, so spinning the wheel keeps its full travel.
-      const limit = list.scrollHeight - list.clientHeight
-      target = Math.min(Math.max((target ?? list.scrollTop) + delta, 0), limit)
-      if (!frame) frame = requestAnimationFrame(step)
+      // glide currently is, so spinning the wheel keeps its full travel. With
+      // no glide running the list's own position is the only honest start.
+      const from = frame ? (target ?? list.scrollTop) : list.scrollTop
+      target = Math.min(Math.max(from + delta, 0), limit)
+      if (!frame) {
+        written = -1
+        frame = requestAnimationFrame(step)
+      }
     }
 
     window.addEventListener("wheel", forward, { passive: true })
     return () => {
       window.removeEventListener("wheel", forward)
-      cancelAnimationFrame(frame)
+      stop()
     }
   }, [])
 

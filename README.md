@@ -25,20 +25,34 @@ alongside the signed build.
 **Steps to produce an exact copy of the reviewed build:**
 
 ```bash
-npm install    # installs exact versions pinned in package-lock.json
-npm run build  # tsc -b && vite build — outputs to dist/
+npm install            # installs exact versions pinned in package-lock.json
+npm run build:firefox  # tsc -b && vite build --mode firefox — outputs to dist/
 ```
 
 `dist/` is the artifact that gets zipped and submitted as the extension
 package. No other manual steps, environment variables, or secrets are
 involved.
 
+`manifest.json` is generated from `manifest.config.json` by the small
+`manifest()` plugin in `vite.config.ts`: the Firefox build drops the
+`favicon` permission, which only exists in Chrome and which AMO's linter
+flags as invalid. Nothing else differs between the two targets — `npm run
+build` produces the Chrome package from the same sources.
+
+**On the two `innerHTML` warnings the linter reports in the bundle:** both
+sit inside React DOM, in its `dangerouslySetInnerHTML` property handler
+(`react-dom` 19.x, present in every React build). No application code in
+`src/` uses `innerHTML` or `dangerouslySetInnerHTML`; HTML that comes back
+from the news APIs is parsed with `DOMParser` and only its `textContent` is
+ever read (`src/features/news/news-sources.ts`).
+
 ## Scripts
 
 | Script              | Description                          |
 | ------------------- | ------------------------------------ |
 | `npm run dev`       | Start the dev server                 |
-| `npm run build`     | Type-check and build to `dist/`      |
+| `npm run build`         | Type-check and build to `dist/` (Chrome) |
+| `npm run build:firefox` | Same, without the Chrome-only `favicon` permission |
 | `npm run preview`   | Serve the production build locally   |
 | `npm run lint`      | Run ESLint                           |
 | `npm run typecheck` | Type-check without emitting          |
@@ -50,7 +64,8 @@ address bar gets focus when *the browser* opens a new tab, so the way to get
 that behaviour is to make this page the new-tab page.
 
 ```bash
-npm run build
+npm run build          # Chrome or Edge
+npm run build:firefox  # Firefox
 ```
 
 **Chrome or Edge:** `chrome://extensions` → enable **Developer mode** →
@@ -70,11 +85,12 @@ Four things make the build loadable as an extension:
 
 - `base: "./"` in `vite.config.ts`inside an extension `/` is the extension
   root, not the page's folder, so absolute asset URLs 404.
-- `public/manifest.json`MV3, declaring `chrome_url_overrides.newtab` plus
+- `manifest.config.json`MV3, declaring `chrome_url_overrides.newtab` plus
   `browser_specific_settings.gecko.id`, which Firefox requires to keep an
-  add-on's identity (and its storage) stable across reloads.
-- The `favicon` permission, which lets `faviconUrl()` use Chrome's `_favicon`
-  endpoint: icons the browser already holds, served offline with no
+  add-on's identity (and its storage) stable across reloads. `vite.config.ts`
+  emits it into `dist/` as `manifest.json`, per target.
+- The `favicon` permission (Chrome build only), which lets `faviconUrl()` use
+  Chrome's `_favicon` endpoint: icons the browser already holds, served offline with no
   third-party request. In a plain tab (and in Firefox, which has no such
   endpoint) it falls back to Google's favicon service.
 
