@@ -1,6 +1,8 @@
+import type { Corner } from "@/lib/corner"
+
 export type LocationMode = "geo" | "manual"
 
-export type WeatherPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right"
+export type WeatherPosition = Corner
 
 export type ManualLocation = {
   label: string

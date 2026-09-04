@@ -5,38 +5,17 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { CornerPositionPicker } from "@/components/corner-position-picker"
 import { Section } from "@/features/settings/section"
-import { cn } from "@/lib/utils"
 
 import { geocodeCity } from "./weather-api"
 import { useWeatherStore } from "./weather-store"
-import type { LocationMode, WeatherPosition } from "./types"
+import type { LocationMode } from "./types"
 
 const MODES: { value: LocationMode; label: string }[] = [
   { value: "geo", label: "My location" },
   { value: "manual", label: "A city" },
 ]
-
-const POSITIONS: { value: WeatherPosition; label: string }[] = [
-  { value: "top-left", label: "Top left" },
-  { value: "top-right", label: "Top right" },
-  { value: "bottom-left", label: "Bottom left" },
-  { value: "bottom-right", label: "Bottom right" },
-]
-
-/** Tiny screen outline with a filled dot in the corner it representsthe
- * selector's own preview, not a stock icon. */
-function CornerIcon({ position }: { position: WeatherPosition }) {
-  const isTop = position.startsWith("top")
-  const isLeft = position.endsWith("left")
-
-  return (
-    <svg viewBox="0 0 24 24" className="size-5" fill="none" aria-hidden>
-      <rect x="2.5" y="2.5" width="19" height="19" rx="3" stroke="currentColor" strokeWidth="1.5" />
-      <rect x={isLeft ? 5 : 14} y={isTop ? 5 : 14} width="5" height="5" rx="1.25" fill="currentColor" />
-    </svg>
-  )
-}
 
 export function WeatherSettings() {
   const enabled = useWeatherStore((state) => state.enabled)
@@ -83,24 +62,7 @@ export function WeatherSettings() {
         <>
           <div className="flex items-center justify-between">
             <span className="text-sm">Position</span>
-            <div className="flex gap-1.5">
-              {POSITIONS.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPosition(value)}
-                  aria-label={label}
-                  aria-pressed={position === value}
-                  title={label}
-                  className={cn(
-                    "grid place-items-center rounded-md border-2 p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                    position === value ? "border-primary text-foreground" : "border-transparent"
-                  )}
-                >
-                  <CornerIcon position={value} />
-                </button>
-              ))}
-            </div>
+            <CornerPositionPicker value={position} onChange={setPosition} />
           </div>
 
           <div className="grid grid-cols-2 gap-2">

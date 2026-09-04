@@ -1,17 +1,13 @@
+import { useEffect, useRef } from "react"
 import { Loader2, RefreshCw } from "lucide-react"
+
+import { CORNER_CLASSES } from "@/lib/corner"
 
 import { describeWeatherCode } from "./weather-codes"
 import { useWeather } from "./use-weather"
+import { useWeatherMetricsStore } from "./weather-metrics-store"
 import { useWeatherStore } from "./weather-store"
-import type { WeatherPosition, WeatherSnapshot } from "./types"
-
-// Top corners sit below the header; bottom corners just clear the edge.
-const POSITION_CLASSES: Record<WeatherPosition, string> = {
-  "top-left": "top-20 left-6",
-  "top-right": "top-20 right-6",
-  "bottom-left": "bottom-6 left-6",
-  "bottom-right": "bottom-6 right-6",
-}
+import type { WeatherSnapshot } from "./types"
 
 function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: () => void }) {
   const { label: description, Icon } = describeWeatherCode(data.code, data.isDay)
@@ -42,11 +38,31 @@ export function WeatherCard() {
   const enabled = useWeatherStore((state) => state.enabled)
   const position = useWeatherStore((state) => state.position)
   const weather = useWeather()
+  const setHeight = useWeatherMetricsStore((state) => state.setHeight)
+
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  // Reported so the checklist card can stack clear of this one when both
+  // share a corner; re-measures itself whenever the content's height changes
+  // (loading -> ready -> error, etc).
+  useEffect(() => {
+    const el = cardRef.current
+    if (!enabled || !el) {
+      setHeight(null)
+      return
+    }
+    const observer = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height))
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      setHeight(null)
+    }
+  }, [enabled, setHeight])
 
   if (!enabled) return null
 
   return (
-    <div className={`fixed z-20 flex justify-center ${POSITION_CLASSES[position]}`}>
+    <div ref={cardRef} className={`fixed z-20 flex justify-center ${CORNER_CLASSES[position]}`}>
       {(weather.status === "locating" || weather.status === "loading") && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />

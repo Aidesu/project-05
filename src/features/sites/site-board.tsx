@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -6,6 +7,10 @@ import { SiteBubble } from "./site-bubble"
 import { SiteFormDialog } from "./site-form-dialog"
 import { useSitesStore } from "./sites-store"
 import type { Site } from "./types"
+
+// Not a real tag: no site ever carries it, so it can't collide with one a
+// user types. Selecting it bypasses the hidden filter entirely.
+const ALL_FILTER = "__all__"
 
 export function SiteBoard() {
   const sites = useSitesStore((state) => state.sites)
@@ -21,19 +26,19 @@ export function SiteBoard() {
 
   // A tag no site carries any more (last card deleted, tag renamed) would
   // filter the board down to nothing, so it is ignored rather than corrected.
-  const effectiveTag = activeTag !== null && tags.includes(activeTag) ? activeTag : null
+  const effectiveTag =
+    activeTag !== null && (activeTag === ALL_FILTER || tags.includes(activeTag))
+      ? activeTag
+      : null
 
   // Filtering is derived at render time, never stored: one source of truth.
-  // A hidden site only ever shows up once its own tag is the active filter
-  // selecting a tag already restricts to matching sites, so nothing extra is
-  // needed there.
-  const visibleSites = useMemo(
-    () =>
-      effectiveTag
-        ? sites.filter((site) => site.tags.includes(effectiveTag))
-        : sites.filter((site) => !site.hidden),
-    [sites, effectiveTag]
-  )
+  // A hidden site only ever shows up once its own tag is the active filter,
+  // or once "All" is selected, which shows every site unfiltered.
+  const visibleSites = useMemo(() => {
+    if (effectiveTag === ALL_FILTER) return sites
+    if (effectiveTag) return sites.filter((site) => site.tags.includes(effectiveTag))
+    return sites.filter((site) => !site.hidden)
+  }, [sites, effectiveTag])
 
   function openAdd() {
     setEditing(undefined)
@@ -47,8 +52,17 @@ export function SiteBoard() {
 
   return (
     <div className="grid gap-4">
-      {tags.length > 0 && (
+      {(tags.length > 0 || sites.some((site) => site.hidden)) && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
+          <Button
+            size="xs"
+            variant={effectiveTag === ALL_FILTER ? "default" : "outline"}
+            className="gap-1"
+            onClick={() => setActiveTag(effectiveTag === ALL_FILTER ? null : ALL_FILTER)}
+          >
+            <Eye className="size-3" />
+            All
+          </Button>
           {tags.map((tag) => (
             <Button
               key={tag}
@@ -70,7 +84,7 @@ export function SiteBoard() {
             type="button"
             onClick={openAdd}
             aria-label="Add a site"
-            className="grid size-20 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="grid size-16 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             +
           </button>
@@ -88,12 +102,12 @@ export function SiteBoard() {
 
             {/* Hidden until the section is hoveredfocus-within too, so it
                 stays reachable by keyboard. */}
-            <div className="absolute top-0 left-full ml-6 grid w-24 justify-items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/sites:opacity-100">
+            <div className="absolute top-0 left-full ml-6 grid w-20 justify-items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/sites:opacity-100">
               <button
                 type="button"
                 onClick={openAdd}
                 aria-label="Add a site"
-                className="grid size-20 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="grid size-16 place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 +
               </button>

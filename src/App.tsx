@@ -2,6 +2,7 @@ import { Header } from "@/components/layout/header"
 import { Toaster } from "@/components/ui/sonner"
 import { BackgroundLayer } from "@/features/background/background-layer"
 import { useBackgroundContrast } from "@/features/background/use-background-contrast"
+import { ChecklistCard } from "@/features/checklist/checklist-card"
 import { Greeting } from "@/features/greeting/greeting"
 import { SiteBoard } from "@/features/sites/site-board"
 import { WeatherCard } from "@/features/weather/weather-card"
@@ -18,6 +19,7 @@ export default function App() {
       <div data-on-bg={contrast ?? undefined}>
         <Header />
         <WeatherCard />
+        <ChecklistCard />
         <main className="mx-auto grid w-full max-w-6xl gap-12 px-6 pt-16 pb-10">
           <Greeting />
           <SiteBoard />

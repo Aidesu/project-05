@@ -15,7 +15,7 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
   const [faviconFailed, setFaviconFailed] = useState(false)
 
   return (
-    <div className="group grid w-24 justify-items-center">
+    <div className="group grid w-20 justify-items-center">
       <div className="relative">
         <a
           href={site.url}
@@ -23,7 +23,7 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
           rel="noreferrer noopener"
           title={hostnameOf(site.url)}
           className={cn(
-            "grid size-20 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "grid size-16 place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
             // A loaded favicon carries its own edgesonly the fallback
             // initial needs a border to read as a button.
             faviconFailed ? "border hover:border-foreground/30" : "hover:opacity-80"

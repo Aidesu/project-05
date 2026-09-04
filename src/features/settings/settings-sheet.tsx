@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { BackgroundSettings } from "@/features/background/background-settings"
+import { ChecklistSettings } from "@/features/checklist/checklist-settings"
 import { WeatherSettings } from "@/features/weather/weather-settings"
 
 import { Section } from "./section"
@@ -58,6 +59,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
 
           <BackgroundSettings />
           <WeatherSettings />
+          <ChecklistSettings />
         </div>
       </SheetContent>
     </Sheet>
