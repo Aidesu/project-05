@@ -14,7 +14,7 @@ import { useChecklistStore } from "./checklist-store"
 const STACK_GAP = 12
 
 /**
- * Floating overlay, corner set in settings — same mechanism and the same
+ * Floating overlay, corner set in settings, same mechanism and the same
  * chrome-less treatment as the weather card: no card surface, just text and
  * icons sitting directly on the background, colored to follow its lightness.
  * Positioned independently by default; if a user still points both at the

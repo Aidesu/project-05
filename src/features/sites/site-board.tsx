@@ -12,8 +12,8 @@ import type { Site } from "./types"
 const ALL_FILTER = "__all__"
 
 /**
- * The add/edit form — text inputs, the tag field, the icon picker, the delete
- * confirmation — only ever appears once someone reaches for it, so it is not
+ * The add/edit form (text inputs, the tag field, the icon picker, the delete
+ * confirmation) only ever appears once someone reaches for it, so it is not
  * part of what a new tab has to parse before painting the board.
  */
 const SiteFormDialog = lazy(() =>
@@ -23,7 +23,7 @@ const SiteFormDialog = lazy(() =>
 /**
  * Drag-and-drop is the last thing a new tab needs and one of the largest
  * things it used to load, so the bubbles render without it and it is fetched
- * once the page goes idle — the grip that uses it is invisible until hover,
+ * once the page goes idle: the grip that uses it is invisible until hover,
  * which is always later than that.
  */
 const SortableSiteList = lazy(() => import("./sortable-site-list"))
@@ -94,7 +94,7 @@ export function SiteBoard() {
     setDialogOpen(true)
   }
 
-  /** The bubbles as they render before — and while — dnd-kit is loading. */
+  /** The bubbles as they render before (and while) dnd-kit is loading. */
   const bubbles = visibleSites.map((site) => (
     <SiteBubble key={site.id} site={site} onEdit={openEdit} />
   ))
@@ -154,7 +154,7 @@ export function SiteBoard() {
           <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-2">
             {sortable ? (
               // The plain bubbles stand in while the chunk lands, so the board
-              // never blinks out — same markup, minus the grip.
+              // never blinks out, same markup, minus the grip.
               <Suspense fallback={bubbles}>
                 <SortableSiteList
                   sites={visibleSites}

@@ -65,13 +65,13 @@ export async function importAsset(raw: unknown): Promise<StoredAsset | undefined
   const value = raw as Record<string, unknown>
 
   // The file names an address rather than carrying bytes. It ends up in an
-  // `<img src>`, a `<video src>` or a CSS `url()`, so only http(s) survives —
+  // `<img src>`, a `<video src>` or a CSS `url()`, so only http(s) survives:
   // a `javascript:` or `data:` string here came from somewhere else's file.
   if (value.type === "url" && typeof value.url === "string" && isSafeHttpUrl(value.url)) {
     return { type: "url", url: value.url }
   }
 
-  // Only a `data:` picture or video — `fetch` would happily go to the network
+  // Only a `data:` picture or video, `fetch` would happily go to the network
   // for anything else, and a config file is not a thing to make requests on
   // behalf of; the media types keep the blob to what the app actually shows.
   if (value.type === "data" && typeof value.dataUrl === "string" && isMediaDataUrl(value.dataUrl)) {

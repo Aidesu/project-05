@@ -2,15 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { isSafeHttpUrl } from "@/lib/url"
 
+import { NewsAccessError, NewsApiError } from "./errors"
 import { readCachedNews, writeCachedNews } from "./news-cache"
-import { newsCategory, NewsApiError } from "./news-sources"
+import { newsCategory } from "./news-sources"
 import type { NewsArticle, NewsCategoryId } from "./types"
 
 type NewsResult =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; articles: NewsArticle[] }
-  | { status: "error"; message: string }
+  /** `needsAccess` marks the one failure the feed can offer to fix, rather
+   * than only retry: the desk's publishers have not been granted. */
+  | { status: "error"; message: string; needsAccess: boolean }
 
 /** Ceiling on a merged feed: "All" with every category on would otherwise put
  * a couple of hundred cards in the grid for no one to ever scroll to. */
@@ -21,7 +24,7 @@ const MERGED_LIMIT = 60
  *
  * Every link here is a string a remote API handed us, and it ends up in an
  * `href` the user clicks, so this is where an address that isn't plain
- * http(s) is dropped — the one gate both the fresh and the cached path pass
+ * http(s) is dropped: the one gate both the fresh and the cached path pass
  * through, cache entries written by an older build included.
  */
 function mergeArticles(lists: NewsArticle[][]): NewsArticle[] {
@@ -45,7 +48,7 @@ function mergeArticles(lists: NewsArticle[][]): NewsArticle[] {
 /**
  * Headlines for one category, or for several merged together ("All"). Each
  * category is served from the shared cache while it is fresh, so switching
- * tabs — or opening a new tab — usually costs no request at all.
+ * tabs (or opening a new tab) usually costs no request at all.
  *
  * `categories` must be a stable array (memoised by the caller); it is empty
  * when there is nothing to load: the feed is off, or every category has been
@@ -114,6 +117,7 @@ export function useNews(categories: NewsCategoryId[]) {
         status: "error",
         message:
           error instanceof NewsApiError ? error.message : "Couldn't load the news right now.",
+        needsAccess: error instanceof NewsAccessError,
       })
     },
     [categories]
@@ -124,5 +128,9 @@ export function useNews(categories: NewsCategoryId[]) {
     return () => controller.current?.abort()
   }, [load])
 
-  return { ...result, refresh: () => void load({ force: true }) }
+  // Stable for as long as the category list is, so an effect elsewhere can
+  // depend on it: granting host access reloads through exactly this.
+  const refresh = useCallback(() => void load({ force: true }), [load])
+
+  return { ...result, refresh }
 }

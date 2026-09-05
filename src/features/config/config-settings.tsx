@@ -34,7 +34,7 @@ import {
 export function ConfigSettings() {
   const { theme, setTheme } = useTheme()
   const [busy, setBusy] = useState(false)
-  /** A parsed file waiting on the confirmation dialog — importing replaces. */
+  /** A parsed file waiting on the confirmation dialog, importing replaces. */
   const [pending, setPending] = useState<ConfigImport | null>(null)
 
   const activeTheme: Theme = theme === "light" || theme === "dark" ? theme : "system"
@@ -106,7 +106,7 @@ export function ConfigSettings() {
     <>
       <Section
         title="Configuration"
-        hint="One file with everything on this page — theme, background, sites, cards and where they sit. Importing replaces this device's setup with the file's."
+        hint="One file with everything on this page: theme, background, sites, cards and where they sit. Importing replaces this device's setup with the file's."
       >
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => void handleExport()} disabled={busy}>

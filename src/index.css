@@ -124,7 +124,7 @@
 
 /*
  * A card *is* an opaque surface: its text sits on the card, not on the
- * wallpaper, so inside one the theme's colours go back — otherwise a dark
+ * wallpaper, so inside one the theme's colours go back; otherwise a dark
  * wallpaper would put pale grey type on a white card.
  */
 [data-on-bg] [data-slot="card"] {

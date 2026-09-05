@@ -1,7 +1,7 @@
 import { create } from "zustand"
 
 /**
- * The weather card's live rendered height, in px — not persisted, since it's
+ * The weather card's live rendered height, in px. Not persisted, since it's
  * a layout fact, not a preference. Lets the checklist card stack itself
  * clear of the weather card when both share the same corner.
  */

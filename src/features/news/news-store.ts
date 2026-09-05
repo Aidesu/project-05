@@ -1,12 +1,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
-import { NEWS_CATEGORIES } from "./news-sources"
+import { orderedCategoryIds } from "./news-sources"
 import type { NewsCategoryId } from "./types"
 
 /**
  * The "All" tab: every chosen category merged into one feed. Not a category
- * id — no source answers to it — so it can never collide with one.
+ * id (no source answers to it), so it can never collide with one.
  */
 export const ALL_CATEGORIES = "__all__"
 
@@ -19,7 +19,7 @@ export type NewsConfig = {
   /** Which category tabs appear, kept in the order they're declared. */
   categories: NewsCategoryId[]
   /** The tab the feed opens on. A category dropped in settings is ignored
-   * rather than corrected here — the feed falls back to the first one left. */
+   * rather than corrected here: the feed falls back to the first one left. */
   activeCategory: NewsTab
 }
 
@@ -47,13 +47,9 @@ export const useNewsStore = create<NewsState>()(
         set((state) => {
           const next = new Set(state.categories)
           if (!next.delete(id)) next.add(id)
-          // Rebuilt from the canonical list, so tabs never reshuffle as they
-          // are switched on and off.
-          return {
-            categories: NEWS_CATEGORIES.filter((category) => next.has(category.id)).map(
-              (category) => category.id
-            ),
-          }
+          // Rebuilt from the canonical order (built-in desks, then custom
+          // ones), so tabs never reshuffle as they are switched on and off.
+          return { categories: orderedCategoryIds().filter((candidate) => next.has(candidate)) }
         }),
 
       importConfig: (config) => set(config),

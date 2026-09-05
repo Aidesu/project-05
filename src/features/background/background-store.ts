@@ -27,7 +27,7 @@ export type BackgroundConfig = {
   mediaEffects: MediaEffects
   /** How an image/video fills its layer: cover, contain, stretch or center. */
   mediaFit: MediaFit
-  /** Crop anchor for `cover` — which edge survives the crop. */
+  /** Crop anchor for `cover`: which edge survives the crop. */
   mediaPosition: MediaPosition
 }
 

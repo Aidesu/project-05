@@ -8,7 +8,7 @@ const CORNERS: { value: Corner; label: string }[] = [
   { value: "bottom-right", label: "Bottom right" },
 ]
 
-/** Tiny screen outline with a filled dot in the corner it represents — the
+/** Tiny screen outline with a filled dot in the corner it represents: the
  * selector's own preview, not a stock icon. */
 function CornerIcon({ corner }: { corner: Corner }) {
   const isTop = corner.startsWith("top")

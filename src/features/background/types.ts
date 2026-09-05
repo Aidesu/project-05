@@ -30,7 +30,7 @@ export type BackgroundKind = Background["kind"]
 export type MediaEffects = {
   /** Gaussian blur, in px. */
   blur: number
-  /** Dark scrim opacity, in percent — keeps text legible over busy media. */
+  /** Dark scrim opacity, in percent. Keeps text legible over busy media. */
   dim: number
   /** Desaturation, in percent. 0 is full colour, 100 is fully grayscale. */
   grayscale: number
@@ -46,7 +46,7 @@ export const DEFAULT_MEDIA_EFFECTS: MediaEffects = {
 }
 
 /**
- * How an image or video fills its layer — the same idea as `object-fit`,
+ * How an image or video fills its layer: the same idea as `object-fit`,
  * named for what it looks like rather than the CSS keyword.
  */
 export const MEDIA_FITS = ["cover", "contain", "stretch", "center"] as const
@@ -56,7 +56,7 @@ export type MediaFit = (typeof MEDIA_FITS)[number]
 export const DEFAULT_MEDIA_FIT: MediaFit = "cover"
 
 /**
- * Vertical crop anchor for `cover` — which edge of the picture survives
+ * Vertical crop anchor for `cover`: which edge of the picture survives
  * being cropped to fill the layer.
  */
 export const MEDIA_POSITIONS = ["top", "center", "bottom"] as const

@@ -80,7 +80,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
                 height={38}
                 loading="lazy"
                 // The favicon provider gets the hostname it needs and nothing
-                // else — not the extension's own address.
+                // else, not the extension's own address.
                 referrerPolicy="no-referrer"
                 draggable={false}
                 onError={() => setFaviconFailed(true)}

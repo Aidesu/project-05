@@ -25,8 +25,19 @@ export function normalizeUrl(input: string): string | null {
 }
 
 /**
+ * A feed address, or `null`. `normalizeUrl` with one extra bar: the page's CSP
+ * allows `connect-src https:` and nothing else, so a plain-http feed could
+ * never be fetched, accepting one would only mean storing a source that
+ * silently fails later, which is worse than refusing it at the door.
+ */
+export function normalizeFeedUrl(input: string): string | null {
+  const url = normalizeUrl(input)
+  return url?.startsWith("https://") ? url : null
+}
+
+/**
  * Whether a string is an `http:`/`https:` URL and nothing else. The guard for
- * addresses that arrive from outside the UI — a config file, a news API — and
+ * addresses that arrive from outside the UI (a config file, a news API) and
  * end up in an `href`, an `<img src>` or a CSS `url()`: everything the form
  * fields accept already went through `normalizeUrl`, but nothing else did.
  */

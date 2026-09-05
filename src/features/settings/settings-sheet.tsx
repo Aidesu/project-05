@@ -35,13 +35,13 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Settings</SheetTitle>
           <SheetDescription>Page preferences, kept on this device.</SheetDescription>
         </SheetHeader>
 
-        <div className="grid gap-6 px-4 pb-6">
+        <div className="grid gap-7 px-5 pb-10">
           <Section title="Theme" hint="“System” follows your device's setting.">
             <div className="grid grid-cols-3 gap-2">
               {THEMES.map(({ value, label, icon: Icon }) => (

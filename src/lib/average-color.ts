@@ -1,8 +1,8 @@
 /**
  * Average colour of an image, sampled at low resolution since only a rough
- * accent is needed. Resolves to `null` if the image can't be read — a
+ * accent is needed. Resolves to `null` if the image can't be read (a
  * network failure, a decode error, or a cross-origin source without CORS
- * headers tainting the canvas — so callers can fall back to a neutral look.
+ * headers tainting the canvas), so callers can fall back to a neutral look.
  */
 export function averageColorFromUrl(url: string): Promise<string | null> {
   return new Promise((resolve) => {

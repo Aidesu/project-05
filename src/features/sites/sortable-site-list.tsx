@@ -20,8 +20,8 @@ import type { Site } from "./types"
 
 /**
  * Every part of the board that needs dnd-kit, in the one module that imports
- * it. Nothing here is on screen at first paint — the grip only appears on
- * hover — so `site-board.tsx` loads this once the page is idle rather than
+ * it. Nothing here is on screen at first paint (the grip only appears on
+ * hover), so `site-board.tsx` loads this once the page is idle rather than
  * making a new tab parse a drag-and-drop library before it can show anything.
  */
 

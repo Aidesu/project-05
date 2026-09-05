@@ -47,7 +47,7 @@ function ImagePlaceholder({ source }: { source: string }) {
 
 /**
  * One story in the grid. Every card is the same height whatever the source
- * gave us — picture or placeholder, standfirst or not — so the rows line up;
+ * gave us (picture or placeholder, standfirst or not), so the rows line up;
  * the full text waits in the dialog the card opens.
  *
  * The surface is translucent rather than solid, so the wallpaper still reads
@@ -55,7 +55,7 @@ function ImagePlaceholder({ source }: { source: string }) {
  *
  * Memoised, and handed the article back through `onOpen` rather than closing
  * over it: "All" can put sixty of these in the grid, and opening one of them
- * changes only the feed's own state — no reason for the other fifty-nine to
+ * changes only the feed's own state: no reason for the other fifty-nine to
  * re-render behind the dialog.
  */
 export const NewsCard = memo(function NewsCard({
@@ -89,7 +89,7 @@ export const NewsCard = memo(function NewsCard({
       >
         {/* Three fifths to the picture, two to the words. At two fifths the
             frame came out around 2.8:1 against a column that never narrows
-            past 17.5rem — wide enough that `object-cover` cropped every
+            past 17.5rem, wide enough that `object-cover` cropped every
             portrait to a letterbox strip. Three fifths lands between 16:9 and
             3:2 across the whole card range, and the words still fit: the
             headline is all that's left down there. */}
@@ -134,7 +134,7 @@ export const NewsCard = memo(function NewsCard({
 
           {/* The headline alone. The standfirst used to sit under it in two
               clamped lines, which was rarely a whole sentence and never the
-              story — and the dialog this card opens carries it in full, next
+              story, and the dialog this card opens carries it in full, next
               to the picture and the source's own facts. So the card asks the
               one question and leaves the answering to the dialog. */}
           <h3

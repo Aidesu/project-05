@@ -1,0 +1,77 @@
+{
+  "world": [
+    { "source": "BBC News", "url": "https://feeds.bbci.co.uk/news/world/rss.xml" },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/world/rss" },
+    { "source": "NPR", "url": "https://feeds.npr.org/1001/rss.xml" },
+    { "source": "France 24", "url": "https://www.france24.com/en/rss" },
+    { "source": "CBC", "url": "https://www.cbc.ca/webfeed/rss/rss-world" },
+    { "source": "Sky News", "url": "https://feeds.skynews.com/feeds/rss/world.xml" }
+  ],
+  "business": [
+    { "source": "BBC News", "url": "https://feeds.bbci.co.uk/news/business/rss.xml" },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/uk/business/rss" },
+    { "source": "Fortune", "url": "https://fortune.com/feed/" },
+    {
+      "source": "MarketWatch",
+      "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories"
+    }
+  ],
+  "science": [
+    {
+      "source": "BBC News",
+      "url": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"
+    },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/science/rss" },
+    { "source": "Phys.org", "url": "https://phys.org/rss-feed/" },
+    { "source": "Quanta", "url": "https://api.quantamagazine.org/feed/" },
+    { "source": "NASA", "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss" }
+  ],
+  "sports": [
+    { "source": "BBC Sport", "url": "https://feeds.bbci.co.uk/sport/rss.xml" },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/sport/rss" }
+  ],
+  "tech": [
+    { "source": "Ars Technica", "url": "https://feeds.arstechnica.com/arstechnica/index" },
+    { "source": "The Verge", "url": "https://www.theverge.com/rss/index.xml" },
+    { "source": "Wired", "url": "https://www.wired.com/feed/rss" },
+    { "source": "Engadget", "url": "https://www.engadget.com/rss.xml" },
+    { "source": "Hackaday", "url": "https://hackaday.com/feed/" },
+    { "source": "9to5Mac", "url": "https://9to5mac.com/feed/" }
+  ],
+  "gaming": [
+    { "source": "Eurogamer", "url": "https://www.eurogamer.net/feed" },
+    { "source": "Polygon", "url": "https://www.polygon.com/rss/index.xml" },
+    { "source": "PC Gamer", "url": "https://www.pcgamer.com/rss/" },
+    { "source": "Rock Paper Shotgun", "url": "https://www.rockpapershotgun.com/feed" },
+    { "source": "IGN", "url": "https://feeds.ign.com/ign/games-all" },
+    { "source": "GameSpot", "url": "https://www.gamespot.com/feeds/news" }
+  ],
+  "screen": [
+    { "source": "Variety", "url": "https://variety.com/feed/" },
+    { "source": "Deadline", "url": "https://deadline.com/feed/" },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/film/rss" }
+  ],
+  "music": [
+    { "source": "Pitchfork", "url": "https://pitchfork.com/feed/feed-news/rss" },
+    { "source": "NME", "url": "https://www.nme.com/news/music/feed" },
+    { "source": "Stereogum", "url": "https://www.stereogum.com/feed/" },
+    { "source": "Consequence", "url": "https://consequence.net/feed/" },
+    { "source": "Billboard", "url": "https://www.billboard.com/feed/" }
+  ],
+  "openSource": [
+    { "source": "OMG! Ubuntu", "url": "https://www.omgubuntu.co.uk/feed" },
+    { "source": "It's FOSS", "url": "https://itsfoss.com/feed/" },
+    { "source": "The GitHub Blog", "url": "https://github.blog/feed/" },
+    { "source": "Phoronix", "url": "https://www.phoronix.com/rss.php" }
+  ],
+  "energy": [
+    { "source": "Electrek", "url": "https://electrek.co/feed/" },
+    { "source": "The Guardian", "url": "https://www.theguardian.com/environment/rss" },
+    { "source": "Carbon Brief", "url": "https://www.carbonbrief.org/feed" },
+    { "source": "CleanTechnica", "url": "https://cleantechnica.com/feed/" }
+  ],
+  "space": [
+    { "source": "Space.com", "url": "https://www.space.com/feeds/all" },
+    { "source": "NASA", "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss" }
+  ]
+}

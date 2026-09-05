@@ -1,44 +1,75 @@
 import { hostnameOf } from "@/lib/url"
 
-import type { NewsArticle, NewsCategory } from "./types"
-
-/** Thrown for failures worth showing verbatim in the feed (vs. a generic fallback). */
-export class NewsApiError extends Error {}
-
-/** Plenty to scroll through, small enough to keep in `localStorage`. */
-const PAGE_SIZE = 30
+import { customDesk, useCustomFeedsStore } from "./custom-feeds-store"
+import { NewsApiError } from "./errors"
+import { FEEDS, originsOf } from "./feed-catalog"
+import { decodeEntities } from "./feed-parser"
+import { feedCredits, fetchFeeds, PAGE_SIZE } from "./news-feeds"
+import type { CustomDesk, NewsArticle, NewsCategory, NewsCategoryId } from "./types"
 
 async function fetchJson<T>(url: URL, signal: AbortSignal): Promise<T> {
   const response = await fetch(url, { signal })
   if (!response.ok) {
     // 429/503 is a free API asking to be left alone for a moment, which is
-    // worth saying plainly — retrying immediately would only dig deeper.
+    // worth saying plainly: retrying immediately would only dig deeper.
     throw new NewsApiError(
       response.status === 429 || response.status === 503
-        ? "The news service is busy right now — try again in a minute."
+        ? "The news service is busy right now. Try again in a minute."
         : "The news service is unavailable right now."
     )
   }
   return (await response.json()) as T
 }
 
+/**
+ * Merges several sources into one desk, tolerating the loss of any of them.
+ * What it buys is a desk that degrades instead of failing: Space reads its
+ * newsrooms *and* the Spaceflight API, so it still fills the grid before host
+ * access is granted, and simply gets richer once it is.
+ */
+function combine(...sources: ((signal: AbortSignal) => Promise<NewsArticle[]>)[]) {
+  return async (signal: AbortSignal): Promise<NewsArticle[]> => {
+    const results = await Promise.allSettled(sources.map((source) => source(signal)))
+
+    const seen = new Set<string>()
+    const articles: NewsArticle[] = []
+    for (const result of results) {
+      if (result.status !== "fulfilled") continue
+      for (const article of result.value) {
+        if (seen.has(article.url)) continue
+        seen.add(article.url)
+        articles.push(article)
+      }
+    }
+
+    if (articles.length === 0) {
+      const failure = results.find((result) => result.status === "rejected")
+      if (failure?.status === "rejected") throw failure.reason
+    }
+
+    articles.sort((a, b) => b.publishedAt - a.publishedAt)
+    return articles.slice(0, PAGE_SIZE)
+  }
+}
+
 // ------------------------------------------------- Wikipedia current events
 
 /**
  * Wikipedia's Current events portal: one page per day, written by editors, in
- * which every line cites the outlet it came from (Reuters, the BBC, AP…). It
- * is the only general-news source that is free, needs no key *and* answers
- * cross-origin requests — RSS feeds and the news APIs do neither, and a proxy
- * would mean running a backend.
+ * which every line cites the outlet it came from (Reuters, the BBC, AP…).
+ *
+ * It backs the one desk the newsroom feeds cannot reproduce (a neutral daily
+ * digest of a running story rather than each outlet's own take on it), and it
+ * is the only general-news source that answers a cross-origin request from an
+ * extension unasked, so Geopolitics keeps working when host access is refused.
  */
 const CURRENT_EVENTS_ENDPOINT = "https://en.wikipedia.org/w/api.php"
 
 /**
  * Days walked back before giving up. Today's page fills in as the day goes on,
- * and a narrow topic ("Arts and culture") can be a line or two a day, so a
- * filtered category needs a week or so to add up to a feed. The walk stops as
- * soon as there are enough stories — day one, for the unfiltered feed — and
- * the days it does read are shared with every other portal category.
+ * and the portal files only a handful of lines under a given heading, so a
+ * filtered desk needs a few days to add up to a feed. The walk stops as soon
+ * as there are enough stories.
  */
 const CURRENT_EVENTS_DAYS = 8
 
@@ -56,7 +87,7 @@ function absoluteWikiUrl(href: string | null | undefined): string | undefined {
 
 /**
  * Walks one day's list. The portal nests stories under the conflict or event
- * they belong to, so only leaf items are stories — the ones above them are
+ * they belong to, so only leaf items are stories: the ones above them are
  * context headings that carry no citation of their own.
  */
 function collectStories(
@@ -94,7 +125,7 @@ function collectStories(
       id: `wiki-${url}`,
       title,
       url,
-      // Cited as "(Reuters)", "(AFP via France 24)" — the brackets are the
+      // Cited as "(Reuters)", "(AFP via France 24)": the brackets are the
       // portal's punctuation, not part of the outlet's name.
       source: citation.textContent?.replace(/^\(|\)$/g, "").trim() || hostnameOf(url),
       publishedAt,
@@ -109,7 +140,7 @@ function parseCurrentEvents(html: string, publishedAt: number): NewsArticle[] {
   const doc = new DOMParser().parseFromString(html, "text/html")
 
   // Scoped to the content block, which keeps the page's own edit/history links
-  // out of the way — they are external links too.
+  // out of the way: they are external links too.
   for (const section of doc.querySelectorAll(".current-events-content")) {
     // Each topic is a bold paragraph ("Business and economy") followed by the
     // list of that topic's stories.
@@ -127,9 +158,8 @@ function parseCurrentEvents(html: string, publishedAt: number): NewsArticle[] {
 }
 
 /**
- * One day's stories, parsed once and shared by every category cut from the
- * portal. Half a dozen topic feeds asking for the same five pages would be
- * thirty requests to an API that answers a burst with 503s.
+ * One day's stories, parsed once and shared by every tab that asks for it: the
+ * eight-day walk would otherwise re-read the same pages on each new tab.
  *
  * Deliberately not given an abort signal: the day belongs to whoever asks for
  * it next, so leaving a tab must not cancel a page another tab is waiting on.
@@ -208,131 +238,6 @@ async function fetchCurrentEvents(topics: string[] | null): Promise<NewsArticle[
   if (articles.length === 0 && failure) throw failure
 
   return articles.slice(0, PAGE_SIZE)
-}
-
-// ------------------------------------------------------------- Newsrooms
-
-type Newsroom = { host: string; label: string }
-
-/**
- * Newsrooms that run WordPress and leave its REST API open with permissive
- * CORS — the only way to get real newsroom copy *with pictures* into the page
- * without a key or a proxy. Every host here was checked from a browser: the
- * ones that refuse the request (Ars Technica, The Verge, Wired, most of the
- * gaming and sports press) simply cannot be read from a page, whatever their
- * RSS feed suggests.
- */
-const NEWSROOMS = {
-  tech: [
-    { host: "techcrunch.com", label: "TechCrunch" },
-    { host: "hackaday.com", label: "Hackaday" },
-    { host: "9to5mac.com", label: "9to5Mac" },
-    { host: "9to5google.com", label: "9to5Google" },
-  ],
-  gaming: [
-    { host: "www.gematsu.com", label: "Gematsu" },
-    { host: "nintendoeverything.com", label: "Nintendo Everything" },
-    { host: "wccftech.com", label: "Wccftech" },
-    { host: "automaton-media.com", label: "Automaton" },
-  ],
-  screen: [
-    { host: "variety.com", label: "Variety" },
-    { host: "deadline.com", label: "Deadline" },
-  ],
-  music: [
-    { host: "www.rollingstone.com", label: "Rolling Stone" },
-    { host: "www.billboard.com", label: "Billboard" },
-    { host: "consequence.net", label: "Consequence" },
-  ],
-  openSource: [
-    { host: "github.blog", label: "The GitHub Blog" },
-    { host: "www.omgubuntu.co.uk", label: "OMG! Ubuntu" },
-    { host: "blog.mozilla.org", label: "Mozilla" },
-  ],
-  energy: [{ host: "electrek.co", label: "Electrek" }],
-} satisfies Record<string, Newsroom[]>
-
-/** The publishers behind a category, for the credit line under the feed. */
-function newsroomCredits(newsrooms: Newsroom[]): string {
-  return newsrooms.map((newsroom) => newsroom.label).join(", ")
-}
-
-type WordPressPost = {
-  id: number
-  /** UTC, unlike `date`, which is the site's own timezone with no offset. */
-  date_gmt: string
-  link: string
-  title: { rendered: string }
-  excerpt: { rendered: string }
-  jetpack_featured_media_url?: string
-}
-
-/** Excerpts arrive with their HTML entities still escaped. */
-function decodeEntities(text: string): string {
-  return new DOMParser().parseFromString(text, "text/html").documentElement.textContent ?? text
-}
-
-/** Titles and excerpts come as rendered HTML: tags, entities and all. */
-function plainText(html: string): string {
-  return decodeEntities(html)
-    .replace(/\s+/g, " ")
-    // A trimmed WordPress excerpt trails off into the theme's own marker.
-    // Each pattern needs the marker at the very end, and the "read more" one
-    // needs the ellipsis WordPress puts in front of it, so an excerpt that
-    // happens to say "read more" mid-sentence survives intact.
-    .replace(/\s*(\[…\]|\[\.\.\.\])\s*$/, "…")
-    .replace(/…\s*read more\s*$/i, "…")
-    .replace(/\s*continue reading\b[^.!?]*$/i, "…")
-    // Where the marker followed a finished sentence, the ellipsis is noise.
-    .replace(/([.!?])…$/, "$1")
-    .trim()
-}
-
-async function fetchNewsroom(
-  { host, label }: Newsroom,
-  signal: AbortSignal
-): Promise<NewsArticle[]> {
-  const url = new URL(`https://${host}/wp-json/wp/v2/posts`)
-  url.searchParams.set("per_page", "12")
-  // Asking for the four fields we use keeps a page of posts at a few kB
-  // instead of the ~300 kB a full WordPress payload would be.
-  url.searchParams.set(
-    "_fields",
-    "id,date_gmt,link,title,excerpt,jetpack_featured_media_url"
-  )
-
-  const posts = await fetchJson<WordPressPost[]>(url, signal)
-
-  return posts.map((post) => ({
-    id: `wp-${host}-${post.id}`,
-    title: plainText(post.title.rendered),
-    url: post.link,
-    source: label,
-    publishedAt: Date.parse(`${post.date_gmt}Z`),
-    summary: plainText(post.excerpt.rendered) || undefined,
-    imageUrl: post.jetpack_featured_media_url || undefined,
-  }))
-}
-
-function fetchNewsrooms(newsrooms: Newsroom[]) {
-  return async (signal: AbortSignal): Promise<NewsArticle[]> => {
-    const results = await Promise.allSettled(
-      newsrooms.map((newsroom) => fetchNewsroom(newsroom, signal))
-    )
-
-    const articles = results
-      .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-      .sort((a, b) => b.publishedAt - a.publishedAt)
-
-    // One newsroom being down is a thinner feed, not a broken one; all of them
-    // being down is worth reporting.
-    if (articles.length === 0) {
-      const failure = results.find((result) => result.status === "rejected")
-      if (failure?.status === "rejected") throw failure.reason
-    }
-
-    return articles.slice(0, PAGE_SIZE)
-  }
 }
 
 // ------------------------------------------------------------ Hacker News
@@ -446,24 +351,38 @@ async function fetchDev(signal: AbortSignal): Promise<NewsArticle[]> {
   }))
 }
 
-/**
- * Every category is served by a free, key-less API with open CORS, so the feed
- * needs no backend and no credentials to ship inside the extension.
- */
+// ------------------------------------------------------------------ Desks
+
+/** A desk read from the publishers' own feeds: credits and hosts come with it. */
+function newsroomDesk(
+  id: NewsCategory["id"],
+  label: string,
+  feeds: (typeof FEEDS)[string]
+): NewsCategory {
+  return {
+    id,
+    label,
+    attribution: feedCredits(feeds),
+    origins: originsOf(feeds),
+    fetch: fetchFeeds(feeds),
+  }
+}
+
 const PORTAL_CREDIT = "Wikipedia's current events portal"
 
+/**
+ * Every desk is free and key-less. Most are read straight from the
+ * publishers' RSS feeds, which is what puts real newsroom copy and pictures on
+ * the cards; the rest answer a cross-origin request unasked and so keep
+ * working whatever the browser has been told about host access.
+ */
 export const NEWS_CATEGORIES: NewsCategory[] = [
-  // ---- General news, cut out of the current events portal by its own topics.
-  {
-    id: "world",
-    label: "World",
-    attribution: PORTAL_CREDIT,
-    fetch: () => fetchCurrentEvents(null),
-  },
+  newsroomDesk("world", "World", FEEDS.world),
   {
     id: "geopolitics",
     label: "Geopolitics",
     attribution: PORTAL_CREDIT,
+    origins: [],
     fetch: () =>
       fetchCurrentEvents([
         "International relations",
@@ -471,87 +390,83 @@ export const NEWS_CATEGORIES: NewsCategory[] = [
         "Armed conflicts and attacks",
       ]),
   },
-  {
-    id: "business",
-    label: "Business",
-    attribution: PORTAL_CREDIT,
-    fetch: () => fetchCurrentEvents(["Business and economy"]),
-  },
-  {
-    id: "science",
-    label: "Science",
-    attribution: PORTAL_CREDIT,
-    fetch: () => fetchCurrentEvents(["Science and technology", "Health and environment"]),
-  },
-  {
-    id: "sports",
-    label: "Sports",
-    attribution: PORTAL_CREDIT,
-    fetch: () => fetchCurrentEvents(["Sports"]),
-  },
-  // ---- Desks with their own newsrooms, pictures and standfirsts.
-  {
-    id: "tech",
-    label: "Tech",
-    attribution: newsroomCredits(NEWSROOMS.tech),
-    fetch: fetchNewsrooms(NEWSROOMS.tech),
-  },
-  {
-    id: "gaming",
-    label: "Gaming",
-    attribution: newsroomCredits(NEWSROOMS.gaming),
-    fetch: fetchNewsrooms(NEWSROOMS.gaming),
-  },
-  {
-    id: "screen",
-    label: "Film & TV",
-    attribution: newsroomCredits(NEWSROOMS.screen),
-    fetch: fetchNewsrooms(NEWSROOMS.screen),
-  },
-  {
-    id: "music",
-    label: "Music",
-    attribution: newsroomCredits(NEWSROOMS.music),
-    fetch: fetchNewsrooms(NEWSROOMS.music),
-  },
-  {
-    id: "open-source",
-    label: "Open source",
-    attribution: newsroomCredits(NEWSROOMS.openSource),
-    fetch: fetchNewsrooms(NEWSROOMS.openSource),
-  },
-  {
-    id: "energy",
-    label: "Energy",
-    attribution: newsroomCredits(NEWSROOMS.energy),
-    fetch: fetchNewsrooms(NEWSROOMS.energy),
-  },
-
-  // ---- Single-API desks.
+  newsroomDesk("business", "Business", FEEDS.business),
+  newsroomDesk("science", "Science", FEEDS.science),
+  newsroomDesk("sports", "Sports", FEEDS.sports),
+  newsroomDesk("tech", "Tech", FEEDS.tech),
+  newsroomDesk("gaming", "Gaming", FEEDS.gaming),
+  newsroomDesk("screen", "Film & TV", FEEDS.screen),
+  newsroomDesk("music", "Music", FEEDS.music),
+  newsroomDesk("open-source", "Open source", FEEDS.openSource),
+  newsroomDesk("energy", "Energy", FEEDS.energy),
   {
     id: "space",
     label: "Space",
-    attribution: "Spaceflight News API",
-    fetch: fetchSpaceflight,
+    attribution: `${feedCredits(FEEDS.space)}, Spaceflight News API`,
+    origins: originsOf(FEEDS.space),
+    fetch: combine(fetchFeeds(FEEDS.space), fetchSpaceflight),
   },
   {
     id: "dev",
     label: "Dev",
     attribution: "DEV Community",
+    origins: [],
     fetch: fetchDev,
   },
-  // Headlines only — no source on the front page ships a picture — so it sits
-  // apart from Tech rather than in it, off unless someone asks for it.
+  // Headlines only (the front page ships no pictures), so it sits apart from
+  // Tech rather than in it, off unless someone asks for it.
   {
     id: "hn",
     label: "Hacker News",
     attribution: "Hacker News front page",
+    origins: [],
     fetch: fetchHackerNews,
   },
 ]
 
-export function newsCategory(id: NewsCategory["id"]): NewsCategory {
-  // Ids only ever come from this list (or a persisted copy of it), so the
-  // fallback is only here to keep the return type honest.
-  return NEWS_CATEGORIES.find((category) => category.id === id) ?? NEWS_CATEGORIES[0]
+/**
+ * A desk someone built, dressed as the feed machinery expects. Assembled on
+ * demand rather than stored: the desk is the list of feeds, and everything
+ * else about it (its credits, the hosts it needs, how it is fetched) follows
+ * from that list and would only be another copy to keep in step.
+ */
+export function customNewsCategory(desk: CustomDesk): NewsCategory {
+  const feeds = desk.feeds.map(({ url, source }) => ({ url, source }))
+
+  return {
+    id: desk.id,
+    label: desk.label,
+    attribution: feeds.length > 0 ? feedCredits(feeds) : "No feeds on this desk yet",
+    origins: originsOf(feeds),
+    fetch: fetchFeeds(feeds),
+  }
+}
+
+export function newsCategory(id: NewsCategoryId): NewsCategory {
+  const builtIn = NEWS_CATEGORIES.find((category) => category.id === id)
+  if (builtIn) return builtIn
+
+  const desk = customDesk(id)
+  if (desk) return customNewsCategory(desk)
+
+  // A desk named by a stale setting or an imported file and since deleted.
+  // Callers filter these out before loading; the fallback only keeps the
+  // return type honest.
+  return NEWS_CATEGORIES[0]
+}
+
+/**
+ * Every desk id there is, in the order tabs should appear: the built-in ones
+ * as declared above, then custom desks in the order they were made.
+ */
+export function orderedCategoryIds(): NewsCategoryId[] {
+  return [
+    ...NEWS_CATEGORIES.map((category) => category.id),
+    ...useCustomFeedsStore.getState().desks.map((desk) => desk.id),
+  ]
+}
+
+/** The hosts these desks read, for the one prompt that covers all of them. */
+export function originsFor(ids: NewsCategoryId[]): string[] {
+  return [...new Set(ids.flatMap((id) => newsCategory(id).origins))]
 }

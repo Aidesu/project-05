@@ -16,13 +16,16 @@ import {
 } from "@/features/background/types"
 import { useChecklistStore, type ChecklistConfig } from "@/features/checklist/checklist-store"
 import type { ChecklistItem } from "@/features/checklist/types"
+import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import { NEWS_CATEGORIES } from "@/features/news/news-sources"
 import { ALL_CATEGORIES, useNewsStore, type NewsConfig } from "@/features/news/news-store"
+import type { CustomCategoryId, CustomDesk, NewsCategoryId } from "@/features/news/types"
 import { useSitesStore } from "@/features/sites/sites-store"
 import type { SiteDraft } from "@/features/sites/types"
 import { useWeatherStore, type WeatherConfig } from "@/features/weather/weather-store"
 import type { ManualLocation } from "@/features/weather/types"
 import { isHexColor } from "@/lib/color"
+import { normalizeFeedUrl } from "@/lib/url"
 import { CORNERS, type Corner } from "@/lib/corner"
 
 import {
@@ -52,6 +55,10 @@ const LOCATION_MODES = ["geo", "manual"] as const
 
 const CATEGORY_IDS = NEWS_CATEGORIES.map((category) => category.id)
 
+/** Mirrors the ceilings `custom-feeds-store` enforces on what it is handed. */
+const MAX_IMPORTED_DESKS = 12
+const MAX_IMPORTED_FEEDS = 20
+
 // ------------------------------------------------------------- file shape
 
 type ExportedSite = {
@@ -75,7 +82,7 @@ type ExportedBackground = Omit<BackgroundConfig, "background"> & {
 
 /**
  * One file describing a whole board: what is shown, where it sits, and what
- * it is filled with. Every section is optional — a file that carries only
+ * it is filled with. Every section is optional: a file that carries only
  * some of them (a legacy sites export, a hand-trimmed file) leaves the rest
  * of the device alone on import.
  */
@@ -89,6 +96,8 @@ export type ConfigFile = {
   weather?: WeatherConfig
   checklist?: ChecklistConfig
   news?: NewsConfig
+  /** Desks built by hand, carried separately: they are their own store. */
+  newsDesks?: CustomDesk[]
 }
 
 /** A parsed file, in the shape each store takes back. */
@@ -99,6 +108,7 @@ export type ConfigImport = {
   weather?: WeatherConfig
   checklist?: ChecklistConfig
   news?: NewsConfig
+  newsDesks?: CustomDesk[]
 }
 
 // ----------------------------------------------------------------- export
@@ -141,6 +151,7 @@ export async function buildConfigExport(
   const { enabled: checklistEnabled, position: checklistPosition, items } =
     useChecklistStore.getState()
   const { enabled: newsEnabled, categories, activeCategory } = useNewsStore.getState()
+  const { desks } = useCustomFeedsStore.getState()
 
   const file: ConfigFile = {
     app: APP,
@@ -164,6 +175,7 @@ export async function buildConfigExport(
     weather: { enabled: weatherEnabled, position: weatherPosition, locationMode, manualLocation },
     checklist: { enabled: checklistEnabled, position: checklistPosition, items },
     news: { enabled: newsEnabled, categories, activeCategory },
+    newsDesks: desks,
   }
 
   return { file, skippedAssets: report.skipped }
@@ -351,18 +363,69 @@ function parseChecklist(raw: unknown): ChecklistConfig | undefined {
   return { enabled: raw.enabled === true, position: parseCorner(raw.position, "top-right"), items }
 }
 
-function parseNews(raw: unknown): NewsConfig | undefined {
+/**
+ * Desks from a file, rebuilt rather than trusted: ids are minted here, every
+ * address goes through the same normalisation the store applies, and the
+ * ceilings match the ones the app enforces, so a hand-edited file cannot
+ * install two hundred feeds or name a desk a thousand characters wide.
+ *
+ * Returns the map from the ids the file used to the ones just minted, which is
+ * what lets `parseNews` keep pointing at the desk that was open.
+ */
+function parseNewsDesks(raw: unknown): {
+  desks: CustomDesk[]
+  ids: Map<string, CustomCategoryId>
+} {
+  const desks: CustomDesk[] = []
+  const ids = new Map<string, CustomCategoryId>()
+  if (!Array.isArray(raw)) return { desks, ids }
+
+  for (const entry of raw.slice(0, MAX_IMPORTED_DESKS)) {
+    if (!isRecord(entry)) continue
+
+    const label = asString(entry.label)?.trim().replace(/\s+/g, " ").slice(0, 32)
+    if (!label) continue
+
+    const feeds = (Array.isArray(entry.feeds) ? entry.feeds : [])
+      .slice(0, MAX_IMPORTED_FEEDS)
+      .flatMap((item: unknown) => {
+        if (!isRecord(item)) return []
+        const url = normalizeFeedUrl(asString(item.url) ?? "")
+        if (!url) return []
+        const source = asString(item.source)?.trim().slice(0, 32)
+        return [{ id: crypto.randomUUID(), url, source: source || new URL(url).hostname }]
+      })
+
+    const id: CustomCategoryId = `custom:${crypto.randomUUID()}`
+    const original = asString(entry.id)
+    if (original) ids.set(original, id)
+    desks.push({ id, label, feeds })
+  }
+
+  return { desks, ids }
+}
+
+function parseNews(
+  raw: unknown,
+  deskIds: Map<string, CustomCategoryId>
+): NewsConfig | undefined {
   if (!isRecord(raw)) return undefined
 
-  const wanted = new Set(Array.isArray(raw.categories) ? raw.categories : [])
-  // Rebuilt from the canonical list, exactly as `toggleCategory` does, so an
-  // id this build no longer has is dropped and the tabs keep their order.
-  const categories = CATEGORY_IDS.filter((id) => wanted.has(id))
+  // The file's own desk ids mean nothing here (they were replaced on the way
+  // in), so anything naming one is translated to the id it now has.
+  const rename = (id: unknown) => (typeof id === "string" ? (deskIds.get(id) ?? id) : id)
 
+  const allowed: NewsCategoryId[] = [...CATEGORY_IDS, ...deskIds.values()]
+  const wanted = new Set((Array.isArray(raw.categories) ? raw.categories : []).map(rename))
+  // Rebuilt from the canonical order, exactly as `toggleCategory` does, so an
+  // id this build no longer has is dropped and the tabs keep their order.
+  const categories = allowed.filter((id) => wanted.has(id))
+
+  const active = rename(raw.activeCategory)
   const activeCategory =
-    raw.activeCategory === ALL_CATEGORIES
+    active === ALL_CATEGORIES
       ? ALL_CATEGORIES
-      : (asOneOf(raw.activeCategory, CATEGORY_IDS) ?? categories[0] ?? CATEGORY_IDS[0])
+      : (asOneOf(active, allowed) ?? categories[0] ?? CATEGORY_IDS[0])
 
   return { enabled: raw.enabled === true, categories, activeCategory }
 }
@@ -403,13 +466,18 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
     return { ok: false, error: "This file was exported by a newer version of the app." }
   }
 
+  const newsDesks = parseNewsDesks(data.newsDesks)
+
   const config: ConfigImport = {
     theme: asOneOf(data.theme, THEMES),
     background: await parseBackground(data.background),
     sites: await parseSites(data.sites),
     weather: parseWeather(data.weather),
     checklist: parseChecklist(data.checklist),
-    news: parseNews(data.news),
+    news: parseNews(data.news, newsDesks.ids),
+    // An explicit empty list is an answer: the file describes someone with no
+    // custom desks, and importing it should leave none behind.
+    newsDesks: Array.isArray(data.newsDesks) ? newsDesks.desks : undefined,
   }
 
   if (describeConfig(config).length === 0) {
@@ -447,6 +515,11 @@ export function describeConfig(config: ConfigImport): string[] {
             config.news.categories.length === 1 ? "y" : "ies"
           })`
         : "News (off)"
+    )
+  }
+  if (config.newsDesks?.length) {
+    lines.push(
+      `${config.newsDesks.length} custom desk${config.newsDesks.length === 1 ? "" : "s"}`
     )
   }
 

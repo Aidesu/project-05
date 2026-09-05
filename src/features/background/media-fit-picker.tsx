@@ -56,7 +56,7 @@ function PositionIcon({ position }: { position: MediaPosition }) {
   )
 }
 
-/** How an image/video background fills its layer — cover, contain, stretch or center. */
+/** How an image/video background fills its layer: cover, contain, stretch or center. */
 export function MediaFitPicker({
   value,
   onChange,
@@ -66,7 +66,7 @@ export function MediaFitPicker({
 }: {
   value: MediaFit
   onChange: (fit: MediaFit) => void
-  /** Crop anchor for `cover` — ignored, and its picker hidden, for every other fit. */
+  /** Crop anchor for `cover`. Ignored, and its picker hidden, for every other fit. */
   position: MediaPosition
   onPositionChange: (position: MediaPosition) => void
   /** Selection ring colour, sampled from the picture itself. Falls back to the theme ring when absent. */

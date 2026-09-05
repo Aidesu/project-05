@@ -14,6 +14,8 @@
     "moduleDetection": "force",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    /* The feed catalogue is JSON, so the manifest and the code read one list. */
+    "resolveJsonModule": true,
     "skipLibCheck": true,
 
     /* Strictness */

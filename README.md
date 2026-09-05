@@ -17,7 +17,7 @@ alongside the signed build.
 
 **Build environment:**
 
-- OS: any (Linux, macOS, Windows) — the build is pure Node/npm, no native
+- OS: any (Linux, macOS, Windows), the build is pure Node/npm, no native
   dependencies
 - Node.js: v22.x (tested with v22.23.1)
 - npm: v10.x (tested with v10.9.8)
@@ -26,7 +26,7 @@ alongside the signed build.
 
 ```bash
 npm install            # installs exact versions pinned in package-lock.json
-npm run build:firefox  # tsc -b && vite build --mode firefox — outputs to dist/
+npm run build:firefox  # tsc -b && vite build --mode firefox, outputs to dist/
 ```
 
 `dist/` is the artifact that gets zipped and submitted as the extension
@@ -36,15 +36,39 @@ involved.
 `manifest.json` is generated from `manifest.config.json` by the small
 `manifest()` plugin in `vite.config.ts`: the Firefox build drops the
 `favicon` permission, which only exists in Chrome and which AMO's linter
-flags as invalid. Nothing else differs between the two targets — `npm run
+flags as invalid. Nothing else differs between the two targets, `npm run
 build` produces the Chrome package from the same sources.
+
+**On `optional_host_permissions`:** the news feed reads publishers' RSS feeds
+directly, which the browser allows only with host access for those hosts. The
+list is not written by hand, the same plugin derives it from
+`src/features/news/feeds.json`, the catalogue the app itself fetches from, so
+the two cannot drift apart. It is *optional*, not required: the feed ships off,
+and nothing is requested until someone turns it on and presses "Allow these
+sources", at which point only the hosts behind the desks they opened are asked
+for. Access is used for exactly one thing (an HTTP GET of the feed URL) and
+the extension has no content scripts, so it never touches page content.
+
+**On the `https://*/*` entry in that list:** desks can also be built by hand,
+with any RSS feed the user adds themselves, and the host of a feed nobody has
+typed yet cannot be known at build time. A browser only grants an origin that
+some declared pattern covers, so this entry is the ceiling those requests are
+made against, not a grant. Being optional it is never handed over at install,
+and the app never asks for it: `permissions.request()` is always called with
+the single `https://<host>/*` about to be read (`custom-feed-dialog.tsx`),
+which is what the browser then shows in its prompt. The user-facing effect is
+one permission dialog naming one site, each time a feed is added.
 
 **On the two `innerHTML` warnings the linter reports in the bundle:** both
 sit inside React DOM, in its `dangerouslySetInnerHTML` property handler
 (`react-dom` 19.x, present in every React build). No application code in
-`src/` uses `innerHTML` or `dangerouslySetInnerHTML`; HTML that comes back
-from the news APIs is parsed with `DOMParser` and only its `textContent` is
-ever read (`src/features/news/news-sources.ts`).
+`src/` uses `innerHTML` or `dangerouslySetInnerHTML`. Feed and API responses
+are parsed with `DOMParser`, and nothing parsed out of them is ever inserted as
+markup: the parser reads `textContent` for the words, and attributes
+(`url`, `src`, `href`) for the addresses
+(`src/features/news/feed-parser.ts`). Every one of those addresses then passes
+`isSafeHttpUrl` or `safeImageUrl` (`src/lib/url.ts`) before reaching an `href`
+or an `<img src>`, so only `http(s)` survives.
 
 ## Scripts
 
@@ -78,7 +102,7 @@ until Firefox restartsFirefox only keeps unsigned add-ons installed for the
 session, there is no permanent "load unpacked" outside Nightly/Developer
 Edition with `xpinstall.signatures.required` turned off in `about:config`.
 For a lasting install, submit the built `dist/` folder for signing at
-[addons.mozilla.org](https://addons.mozilla.org) (self-distribution is fine —
+[addons.mozilla.org](https://addons.mozilla.org) (self-distribution is fine:
 it doesn't need to be public) and install the signed `.xpi` it gives back.
 
 Four things make the build loadable as an extension:

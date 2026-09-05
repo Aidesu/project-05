@@ -28,7 +28,7 @@ type SitesState = {
 
 /**
  * Moves one item, leaving the rest in order. Four lines rather than dnd-kit's
- * `arrayMove`, so the store — which every part of the page reads — doesn't
+ * `arrayMove`, so the store (which every part of the page reads) doesn't
  * drag the drag-and-drop library in behind it.
  */
 function arrayMove<T>(items: T[], from: number, to: number): T[] {

@@ -36,6 +36,24 @@ export function readCachedNews(
   return entry.articles
 }
 
+/**
+ * Drops one category's entry. Called whenever a custom desk changes shape (a
+ * feed added, renamed or removed) because the cached headlines were built
+ * from the feeds it had a moment ago and would otherwise outlive them by the
+ * length of the TTL.
+ */
+export function forgetCachedNews(category: NewsCategoryId) {
+  try {
+    const cache = read()
+    if (!(category in cache)) return
+    delete cache[category]
+    localStorage.setItem(KEY, JSON.stringify(cache))
+  } catch {
+    // Same bargain as writing: a cache that won't update costs freshness,
+    // never the feed.
+  }
+}
+
 export function writeCachedNews(category: NewsCategoryId, articles: NewsArticle[]) {
   try {
     localStorage.setItem(

@@ -1,6 +1,7 @@
 import { useBackgroundStore } from "@/features/background/background-store"
 import { assetIdOf } from "@/features/background/types"
 import { useChecklistStore } from "@/features/checklist/checklist-store"
+import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import { useNewsStore } from "@/features/news/news-store"
 import { useSitesStore } from "@/features/sites/sites-store"
 import { iconAssetIdOf } from "@/features/sites/types"
@@ -24,6 +25,8 @@ export function applyConfig(config: ConfigImport, setTheme: (theme: Theme) => vo
   if (config.sites) useSitesStore.getState().importConfig(config.sites)
   if (config.weather) useWeatherStore.getState().importConfig(config.weather)
   if (config.checklist) useChecklistStore.getState().importConfig(config.checklist)
+  // Desks first: the news settings that follow may name one of them.
+  if (config.newsDesks) useCustomFeedsStore.getState().importConfig(config.newsDesks)
   if (config.news) useNewsStore.getState().importConfig(config.news)
 }
 

@@ -34,8 +34,8 @@ export default function App() {
         <Header />
         <WeatherCard />
         <ChecklistCard />
-        {/* Greeting and board take the height they need; the last row — the
-            feed — takes whatever is left. */}
+        {/* Greeting and board take the height they need; the last row (the
+            feed) takes whatever is left. */}
         {/* Wide enough for four columns of news on an ultrawide, while the
             greeting and the board stay centred inside it as before. */}
         {/* The spacing above and between the rows follows the viewport's

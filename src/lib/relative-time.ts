@@ -8,7 +8,7 @@ const UNITS: { unit: Intl.RelativeTimeFormatUnit; ms: number }[] = [
 
 const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto", style: "narrow" })
 
-/** "3 min ago", "5 hr ago" — anything under a minute reads as "just now". */
+/** "3 min ago", "5 hr ago": anything under a minute reads as "just now". */
 export function relativeTime(timestamp: number, now = Date.now()): string {
   const elapsed = timestamp - now
   const magnitude = Math.abs(elapsed)

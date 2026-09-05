@@ -5,7 +5,7 @@ const MINUTE_MS = 60_000
 /**
  * Ticks once a minute, on the minute, so the clock in the header stays live.
  *
- * A new tab is often the tab left open, and nothing on screen shows seconds —
+ * A new tab is often the tab left open, and nothing on screen shows seconds:
  * a per-second interval was re-rendering sixty times for every visible change.
  * The delay is recomputed from the wall clock each tick rather than fixed, so
  * the minute turns over when it actually does and no drift accumulates.
