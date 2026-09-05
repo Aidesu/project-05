@@ -4,6 +4,10 @@
 /* Enables `dark:` variants when a `.dark` class is present on an ancestor. */
 @custom-variant dark (&:is(.dark *));
 
+/* Same idea for the glass appearance (`@/features/glass`): `glass:px-3` is a
+   utility that only lands while the option is on. */
+@custom-variant glass (&:is([data-glass] *));
+
 /* Exposes the CSS variables below as Tailwind utilities (bg-background, ...). */
 @theme inline {
   --color-background: var(--background);
@@ -131,6 +135,160 @@
   --foreground: var(--surface-foreground);
   --muted-foreground: var(--surface-muted-foreground);
   --border: var(--surface-border);
+}
+
+/*
+ * --------------------------------------------------------------------- glass
+ *
+ * An appearance option (Settings -> Theme, `@/features/glass`) that trades the
+ * flat surfaces for translucent ones: a blurred, saturated backdrop, a bright
+ * edge and a diagonal sheen, which together are what make glass read as glass
+ * rather than as a semi-transparent box.
+ *
+ * The switch is the `data-glass` attribute `useGlassRoot` puts on <html>, and
+ * every rule here hangs off it: with the option off the marker classes below
+ * carry nothing at all, so a component opts in by naming one and never has to
+ * branch on the setting itself.
+ *
+ * Unlayered on purpose. Tailwind's utilities live in `@layer utilities`, so
+ * these win over the `bg-*` a component already carries and the marker alone
+ * is enough to turn a surface to glass.
+ */
+[data-glass] {
+  --glass-blur: 20px;
+  /* Panels the page's own content sits on. */
+  --glass-fill: oklch(1 0 0 / 55%);
+  --glass-fill-hover: oklch(1 0 0 / 70%);
+  /* Dimmed, for a story already opened. */
+  --glass-fill-muted: oklch(1 0 0 / 34%);
+  /* Sheets and dialogs: dense text, so more of the wallpaper is held back. */
+  --glass-fill-overlay: oklch(1 0 0 / 78%);
+  --glass-edge: oklch(1 0 0 / 55%);
+  --glass-sheen: linear-gradient(140deg, oklch(1 0 0 / 35%), transparent 55%);
+  --glass-inner:
+    inset 0 1px 0 oklch(1 0 0 / 65%), inset 0 -1px 1px oklch(1 0 0 / 20%);
+  --glass-shadow: 0 10px 30px oklch(0 0 0 / 12%);
+}
+
+[data-glass].dark {
+  --glass-fill: oklch(0.26 0 0 / 50%);
+  --glass-fill-hover: oklch(0.3 0 0 / 64%);
+  --glass-fill-muted: oklch(0.24 0 0 / 30%);
+  --glass-fill-overlay: oklch(0.18 0 0 / 78%);
+  --glass-edge: oklch(1 0 0 / 16%);
+  --glass-sheen: linear-gradient(140deg, oklch(1 0 0 / 12%), transparent 55%);
+  --glass-inner:
+    inset 0 1px 0 oklch(1 0 0 / 18%), inset 0 -1px 1px oklch(0 0 0 / 20%);
+  --glass-shadow: 0 8px 24px oklch(0 0 0 / 30%);
+}
+
+/*
+ * The material itself. `data-variant` is the button's own (`ui/button.tsx`):
+ * a pressed tab is the one thing in a row of them that has to stay solid, so
+ * the default variant keeps its fill even when it carries a marker.
+ */
+[data-glass]
+  :is(.glass-surface, .glass-panel, .glass-overlay, .glass-control):not(
+    [data-variant="default"]
+  ) {
+  background-color: var(--glass-fill);
+  background-image: var(--glass-sheen);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-inner);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+}
+
+/*
+ * The floating cards and the bubbles sit straight on the wallpaper with no
+ * surface at all when the option is off, so they bring their own edge (and,
+ * for a panel, its corner) along with the fill.
+ */
+[data-glass] .glass-panel {
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-xl);
+}
+
+/* Beads rather than panes: less blur under something the size of a pill. */
+[data-glass] .glass-control:not([data-variant="default"]) {
+  --glass-blur: 12px;
+  border: 1px solid var(--glass-edge);
+}
+
+/*
+ * Only what floats alone casts. The news grid deliberately does not: sixty
+ * cards a few pixels apart pool their drop shadows into one dark rectangle
+ * the size of the feed, which the scroller then clips off square at its own
+ * edges — the hard seam between the feed and the wallpaper around it. The
+ * bright edge and the inner highlight are what separate a card from what is
+ * behind it; the shadow was only ever adding weight.
+ */
+[data-glass] :is(.glass-panel, .glass-overlay) {
+  box-shadow: var(--glass-inner), var(--glass-shadow);
+}
+
+[data-glass] .glass-overlay {
+  background-color: var(--glass-fill-overlay);
+}
+
+/* The hover the flat card has, in the material's own terms. */
+[data-glass] :is(.glass-surface, .glass-control):hover {
+  background-color: var(--glass-fill-hover);
+}
+
+/* A story already opened keeps stepping back (`news-card.tsx`). */
+[data-glass] .glass-surface[data-seen] {
+  background-color: var(--glass-fill-muted);
+}
+
+/* Lighter than the flat scrim: the pane in front of it now does the
+   separating, and half the point of the option is seeing the wallpaper. */
+[data-glass] .glass-scrim {
+  background-color: oklch(0 0 0 / 25%);
+}
+
+/*
+ * With nothing blurred behind it a pane is just tint, which reads as murk
+ * rather than as glass, so the fills go nearly opaque instead. Both engines
+ * we ship to have supported `backdrop-filter` for years; this is for the odd
+ * build with it turned off.
+ */
+@supports not (backdrop-filter: blur(1px)) {
+  [data-glass] {
+    --glass-fill: oklch(1 0 0 / 82%);
+    --glass-fill-hover: oklch(1 0 0 / 92%);
+    --glass-fill-muted: oklch(1 0 0 / 66%);
+    --glass-fill-overlay: oklch(1 0 0 / 95%);
+  }
+
+  [data-glass].dark {
+    --glass-fill: oklch(0.24 0 0 / 85%);
+    --glass-fill-hover: oklch(0.28 0 0 / 94%);
+    --glass-fill-muted: oklch(0.22 0 0 / 70%);
+    --glass-fill-overlay: oklch(0.18 0 0 / 96%);
+  }
+}
+
+/*
+ * The feed doesn't end, it runs out of screen: the grid carries on under the
+ * bottom edge, and over the top one once it has been scrolled. Cut flush, it
+ * reads as a slab laid over the wallpaper rather than as part of the page, so
+ * both edges dissolve instead.
+ *
+ * A mask rather than a gradient laid over the top, because there is nothing
+ * to fade *to*: behind the feed is whatever wallpaper someone chose. The
+ * bottom fade is the deeper of the two, since that edge is where a card is
+ * actually cut in half; the top one only has to soften the line under the
+ * category tabs.
+ */
+@utility feed-fade {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 1rem,
+    #000 calc(100% - 2.5rem),
+    transparent 100%
+  );
 }
 
 /*

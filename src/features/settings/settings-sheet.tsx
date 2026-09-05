@@ -13,6 +13,7 @@ import {
 import { BackgroundSettings } from "@/features/background/background-settings"
 import { ChecklistSettings } from "@/features/checklist/checklist-settings"
 import { ConfigSettings } from "@/features/config/config-settings"
+import { GlassToggle } from "@/features/glass/glass-toggle"
 import { NewsSettings } from "@/features/news/news-settings"
 import { WeatherSettings } from "@/features/weather/weather-settings"
 
@@ -42,7 +43,10 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
         </SheetHeader>
 
         <div className="grid gap-7 px-5 pb-10">
-          <Section title="Theme" hint="“System” follows your device's setting.">
+          <Section
+            title="Theme"
+            hint="“System” follows your device's setting. Glass makes the page's surfaces translucent."
+          >
             <div className="grid grid-cols-3 gap-2">
               {THEMES.map(({ value, label, icon: Icon }) => (
                 <Button
@@ -57,6 +61,8 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
                 </Button>
               ))}
             </div>
+
+            <GlassToggle />
           </Section>
 
           <BackgroundSettings />

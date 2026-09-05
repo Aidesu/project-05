@@ -48,7 +48,10 @@ export function ChecklistCard() {
 
   return (
     <div
-      className={cn("fixed z-20 grid w-52 gap-2 text-foreground", CORNER_CLASSES[position])}
+      className={cn(
+        "glass-panel glass:p-3 fixed z-20 grid w-[min(17.5rem,calc(100vw-3rem))] gap-2 text-foreground",
+        CORNER_CLASSES[position]
+      )}
       style={
         stackOffset
           ? {
@@ -59,18 +62,22 @@ export function ChecklistCard() {
     >
       <p className="text-xs text-muted-foreground">Checklist</p>
 
+      {/* `min-w-0` down the chain: a grid item is `min-width: auto`, so without
+          it a row grows to fit its widest word and takes the card (fixed to a
+          corner, so straight off the screen) with it. */}
       {items.length > 0 && (
-        <ul className="grid gap-1.5">
+        <ul className="grid min-w-0 gap-1.5">
           {items.map((item) => (
-            <li key={item.id} className="group flex items-center gap-2">
+            <li key={item.id} className="group flex min-w-0 items-start gap-2">
               <Checkbox
                 checked={item.done}
                 onCheckedChange={() => toggleItem(item.id)}
                 aria-label={item.text}
+                className="mt-0.5"
               />
               <span
                 className={cn(
-                  "flex-1 truncate text-sm",
+                  "min-w-0 flex-1 text-sm wrap-anywhere",
                   item.done && "text-muted-foreground line-through"
                 )}
               >
@@ -80,7 +87,7 @@ export function ChecklistCard() {
                 type="button"
                 onClick={() => removeItem(item.id)}
                 aria-label={`Remove ${item.text}`}
-                className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
+                className="mt-0.5 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100 focus-visible:opacity-100"
               >
                 <X className="size-3.5" />
               </button>

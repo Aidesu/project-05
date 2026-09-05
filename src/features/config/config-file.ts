@@ -16,6 +16,7 @@ import {
 } from "@/features/background/types"
 import { useChecklistStore, type ChecklistConfig } from "@/features/checklist/checklist-store"
 import type { ChecklistItem } from "@/features/checklist/types"
+import { useGlassStore, type GlassConfig } from "@/features/glass/glass-store"
 import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import {
   useNewsSavedStore,
@@ -52,8 +53,11 @@ import {
  * 2 added the news desks someone built and the stories they kept. Files at
  * version 1 still import: every field either side of that is optional, and a
  * file that carries neither simply leaves both stores alone.
+ *
+ * 3 added the glass appearance, on the same terms: an older file carries no
+ * `glass` section and leaves the one on this device alone.
  */
-export const CONFIG_EXPORT_VERSION = 2
+export const CONFIG_EXPORT_VERSION = 3
 
 const APP = "mainboard.config"
 
@@ -110,6 +114,8 @@ export type ConfigFile = {
   version: number
   exportedAt: number
   theme?: Theme
+  /** The glass appearance, which is a theme choice one step in. */
+  glass?: GlassConfig
   background?: ExportedBackground
   sites?: ExportedSite[]
   weather?: WeatherConfig
@@ -131,6 +137,7 @@ export type ConfigFile = {
 /** A parsed file, in the shape each store takes back. */
 export type ConfigImport = {
   theme?: Theme
+  glass?: GlassConfig
   background?: BackgroundConfig
   sites?: SiteDraft[]
   weather?: WeatherConfig
@@ -179,6 +186,7 @@ export async function buildConfigExport(
     useWeatherStore.getState()
   const { enabled: checklistEnabled, position: checklistPosition, items } =
     useChecklistStore.getState()
+  const { enabled: glassEnabled } = useGlassStore.getState()
   const { enabled: newsEnabled, categories, activeCategory } = useNewsStore.getState()
   const { desks } = useCustomFeedsStore.getState()
   const { articles: savedArticles } = useNewsSavedStore.getState()
@@ -188,6 +196,7 @@ export async function buildConfigExport(
     version: CONFIG_EXPORT_VERSION,
     exportedAt: Date.now(),
     theme,
+    glass: { enabled: glassEnabled },
     background: await exportBackground(
       { background, gradients, gradientAnimated, mediaEffects, mediaFit, mediaPosition },
       report
@@ -394,6 +403,10 @@ function parseChecklist(raw: unknown): ChecklistConfig | undefined {
   return { enabled: raw.enabled === true, position: parseCorner(raw.position, "top-right"), items }
 }
 
+function parseGlass(raw: unknown): GlassConfig | undefined {
+  return isRecord(raw) ? { enabled: raw.enabled === true } : undefined
+}
+
 /**
  * Desks from a file, rebuilt rather than trusted: ids are minted here, every
  * address goes through the same normalisation the store applies, and the
@@ -574,6 +587,7 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
 
   const config: ConfigImport = {
     theme: asOneOf(data.theme, THEMES),
+    glass: parseGlass(data.glass),
     background: await parseBackground(data.background),
     sites: await parseSites(data.sites),
     weather: parseWeather(data.weather),
@@ -597,6 +611,7 @@ export function describeConfig(config: ConfigImport): string[] {
   const lines: string[] = []
 
   if (config.theme) lines.push(`Theme: ${config.theme}`)
+  if (config.glass) lines.push(`Glass (${config.glass.enabled ? "on" : "off"})`)
   if (config.background) lines.push("Background")
   if (config.sites) {
     lines.push(`${config.sites.length} site${config.sites.length === 1 ? "" : "s"}`)

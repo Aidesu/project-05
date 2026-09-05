@@ -26,6 +26,12 @@ function sourceHue(source: string): number {
  * rather than sitting at a fixed 288px, so a short window (or a zoomed one,
  * which is the same thing in CSS pixels) gets proportionally smaller cards
  * instead of two enormous ones.
+ *
+ * The floor is not slack: two fifths of 14rem, less the padding, is exactly
+ * what the source line and two lines of headline need. Lowering it to 12rem
+ * to fit another row on a 600px window clipped the second line off every
+ * headline in the grid, so the floor stays and the room comes from the
+ * greeting above instead.
  */
 export const NEWS_CARD_HEIGHT = "h-[clamp(14rem,32svh,18rem)]"
 

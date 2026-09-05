@@ -4,6 +4,7 @@ import { Header } from "@/components/layout/header"
 import { BackgroundLayer } from "@/features/background/background-layer"
 import { useBackgroundContrast } from "@/features/background/use-background-contrast"
 import { ChecklistCard } from "@/features/checklist/checklist-card"
+import { useGlassRoot } from "@/features/glass/use-glass-root"
 import { Greeting } from "@/features/greeting/greeting"
 import { NewsFeed } from "@/features/news/news-feed"
 import { SiteBoard } from "@/features/sites/site-board"
@@ -21,6 +22,7 @@ const Toaster = lazy(() =>
 
 export default function App() {
   const contrast = useBackgroundContrast()
+  useGlassRoot()
 
   return (
     // The page is exactly one viewport and never scrolls: the feed is the one

@@ -43,7 +43,7 @@ export function Header() {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-foreground"
+          className="glass-control text-foreground"
           onClick={openSettings}
           onPointerEnter={() => setSettingsLoaded(true)}
           onFocus={() => setSettingsLoaded(true)}

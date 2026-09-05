@@ -27,8 +27,17 @@ const WHEEL_EASING = 0.2
  * Columns are laid by width, not by breakpoint: as many ~18rem cards as fit,
  * which is two on a laptop, four across a 1400px column and one on a phone or
  * a heavily zoomed window: no step changes on the way.
+ *
+ * The `min()` is what keeps that true below 17.5rem of usable width (a narrow
+ * side window, a phone, a page zoomed to 200%): without it the single column
+ * keeps its 17.5rem floor and the grid pushes past the right edge instead of
+ * shrinking with the page.
+ *
+ * The gap follows the viewport's height for the same reason the card does: on
+ * a short window every pixel between rows is one the feed doesn't get.
  */
-const NEWS_GRID = "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-3"
+const NEWS_GRID =
+  "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(min(17.5rem,100%),1fr))] gap-[clamp(0.5rem,1.5svh,0.75rem)]"
 
 /**
  * Cards mounted before anything is scrolled, and how many more join them each
@@ -351,7 +360,7 @@ export function NewsFeed() {
             <Button
               size="xs"
               variant={showingSaved ? "default" : "outline"}
-              className="gap-1"
+              className="glass-control gap-1"
               onClick={() => setActiveCategory(SAVED_CATEGORY)}
               aria-pressed={showingSaved}
             >
@@ -365,7 +374,7 @@ export function NewsFeed() {
           <Button
             size="xs"
             variant={active === ALL_CATEGORIES ? "default" : "outline"}
-            className="gap-1"
+            className="glass-control gap-1"
             onClick={() => setActiveCategory(ALL_CATEGORIES)}
             aria-pressed={active === ALL_CATEGORIES}
           >
@@ -378,6 +387,7 @@ export function NewsFeed() {
                 key={category.id}
                 size="xs"
                 variant={active === category.id ? "default" : "secondary"}
+                className="glass-control"
                 onClick={() => setActiveCategory(category.id)}
                 aria-pressed={active === category.id}
               >
@@ -397,7 +407,7 @@ export function NewsFeed() {
       {/* Placeholders rather than a spinner: the grid keeps its shape while
           the headlines land, so the page below doesn't jump. */}
       {!showingSaved && news.status === "loading" && (
-        <div className={cn(NEWS_GRID, "min-h-0 flex-1 overflow-hidden")}>
+        <div className={cn(NEWS_GRID, "feed-fade min-h-0 flex-1 overflow-hidden")}>
           {Array.from({ length: 8 }, (_, index) => (
             <div
               key={index}
@@ -452,16 +462,25 @@ export function NewsFeed() {
           <ul
             ref={listRef}
             onPointerEnter={() => setDialogLoaded(true)}
-            className={cn(NEWS_GRID, "scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain")}
+            className={cn(
+              NEWS_GRID,
+              "feed-fade scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            )}
           >
             {articles.slice(0, shown).map((article) => (
               // Off-screen cards skip layout and paint entirely; the intrinsic
               // size keeps the scrollbar honest while they are skipped, and the
               // `auto` keyword lets the browser use the real height once a card
               // has been rendered even once.
+              //
+              // Except under glass, where it has to go: `content-visibility`
+              // brings paint containment with it, and a contained box is a
+              // backdrop root, so the card inside it has nothing behind it to
+              // blur and its shadow gets clipped square at the cell's edges.
+              // The skipping is an optimisation; the corners are not.
               <li
                 key={article.id}
-                className="[content-visibility:auto] [contain-intrinsic-size:auto_18rem]"
+                className="[content-visibility:auto] [contain-intrinsic-size:auto_18rem] glass:[content-visibility:visible]"
               >
                 <NewsCard article={article} onOpen={openArticle} />
               </li>

@@ -113,7 +113,7 @@ export function SiteBoard() {
           <Button
             size="xs"
             variant={effectiveTag === ALL_FILTER ? "default" : "outline"}
-            className="gap-1"
+            className="glass-control gap-1"
             onClick={() => setActiveTag(effectiveTag === ALL_FILTER ? null : ALL_FILTER)}
           >
             <Eye className="size-3" />
@@ -124,6 +124,7 @@ export function SiteBoard() {
               key={tag}
               size="xs"
               variant={effectiveTag === tag ? "default" : "secondary"}
+              className="glass-control"
               onClick={() => setActiveTag(effectiveTag === tag ? null : tag)}
             >
               {tag}
@@ -140,7 +141,7 @@ export function SiteBoard() {
             type="button"
             onClick={openAdd}
             aria-label="Add a site"
-            className="grid size-[54px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="glass-control grid size-[60px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             +
           </button>
@@ -148,10 +149,19 @@ export function SiteBoard() {
         </div>
       ) : (
         <div className="flex justify-center">
-          {/* Sites are the only in-flow content herethe centering above is
-              theirs alone. Add sits outside that flow (absolute), so it never
-              shifts where the sites themselves land. */}
-          <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-2">
+          {/* Add is the last tile of the row rather than an overlay hanging off
+              its right edge, where a full row (or a narrow window) pushed it
+              clean off the page. In the flow it wraps with the bubbles, and
+              `justify-center` centres every line, including the last one of a
+              board that wraps.
+
+              It is always on screen rather than waiting for the pointer: any
+              reveal on hover has to either hold its slot open (which pushes
+              the bubbles half a tile off centre) or open it on the way in
+              (which slides the whole board sideways under the cursor). A tile
+              that is simply there does neither, and the row is centred as one
+              group at all times. */}
+          <div className="flex min-h-20 flex-wrap items-start justify-center gap-1">
             {sortable ? (
               // The plain bubbles stand in while the chunk lands, so the board
               // never blinks out, same markup, minus the grip.
@@ -166,14 +176,12 @@ export function SiteBoard() {
               bubbles
             )}
 
-            {/* Hidden until the section is hoveredfocus-within too, so it
-                stays reachable by keyboard. */}
-            <div className="absolute top-0 left-full ml-6 grid w-20 justify-items-center gap-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/sites:opacity-100">
+            <div className="grid w-18 justify-items-center gap-0.5">
               <button
                 type="button"
                 onClick={openAdd}
                 aria-label="Add a site"
-                className="grid size-[54px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="glass-control grid size-[60px] place-items-center rounded-full border border-dashed text-2xl leading-none text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 +
               </button>

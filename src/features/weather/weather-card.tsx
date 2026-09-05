@@ -62,7 +62,10 @@ export function WeatherCard() {
   if (!enabled) return null
 
   return (
-    <div ref={cardRef} className={`fixed z-20 flex justify-center ${CORNER_CLASSES[position]}`}>
+    <div
+      ref={cardRef}
+      className={`glass-panel glass:px-2 glass:py-1.5 fixed z-20 flex justify-center ${CORNER_CLASSES[position]}`}
+    >
       {(weather.status === "locating" || weather.status === "loading") && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-4 animate-spin" />

@@ -1,6 +1,7 @@
 import { useBackgroundStore } from "@/features/background/background-store"
 import { assetIdOf } from "@/features/background/types"
 import { useChecklistStore } from "@/features/checklist/checklist-store"
+import { useGlassStore } from "@/features/glass/glass-store"
 import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import { useNewsSavedStore } from "@/features/news/news-saved-store"
 import { useNewsStore } from "@/features/news/news-store"
@@ -22,6 +23,7 @@ import type { ConfigImport, Theme } from "./config-file"
  */
 export function applyConfig(config: ConfigImport, setTheme: (theme: Theme) => void): void {
   if (config.theme) setTheme(config.theme)
+  if (config.glass) useGlassStore.getState().importConfig(config.glass)
   if (config.background) useBackgroundStore.getState().importConfig(config.background)
   if (config.sites) useSitesStore.getState().importConfig(config.sites)
   if (config.weather) useWeatherStore.getState().importConfig(config.weather)

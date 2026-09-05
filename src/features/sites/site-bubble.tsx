@@ -49,7 +49,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
       ref={drag?.setNodeRef}
       style={drag?.style}
       className={cn(
-        "group grid w-20 justify-items-center gap-0.5 rounded-2xl",
+        "group grid w-18 justify-items-center gap-0.5 rounded-2xl",
         drag?.isDragging && "z-10 opacity-40"
       )}
     >
@@ -60,10 +60,14 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
           draggable={false}
           title={hostnameOf(site.url)}
           className={cn(
-            "grid size-[54px] place-items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "glass-control grid size-[60px] place-items-center rounded-full transition-[transform,background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            // Lifts under the pointer the way a dock icon does, over a faint
+            // disc so there is something to lift. Under glass the disc is
+            // already there and brightens instead (`index.css`).
+            "hover:-translate-y-0.5 hover:scale-105 hover:bg-foreground/8 active:translate-y-0 active:scale-100",
             // A loaded favicon carries its own edgesonly the fallback
             // initial needs a border to read as a button.
-            faviconFailed ? "border hover:border-foreground/30" : "hover:opacity-80"
+            faviconFailed && "border hover:border-foreground/30"
           )}
         >
           {faviconFailed ? (
@@ -75,15 +79,15 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
               <img
                 src={iconSrc}
                 alt=""
-                width={38}
-                height={38}
+                width={34}
+                height={34}
                 loading="lazy"
                 // The favicon provider gets the hostname it needs and nothing
                 // else, not the extension's own address.
                 referrerPolicy="no-referrer"
                 draggable={false}
                 onError={() => setFaviconFailed(true)}
-                className="size-[38px] rounded"
+                className="size-[34px] rounded"
               />
             )
           )}
@@ -95,7 +99,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
           type="button"
           onClick={() => onEdit(site)}
           aria-label={`Edit ${site.title}`}
-          className="absolute -bottom-1 -right-1 grid size-7 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 group-hover:opacity-100"
+          className="glass-control absolute -bottom-1 -right-1 grid size-7 place-items-center rounded-full border bg-background text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 group-hover:opacity-100"
         >
           <Pencil className="size-3.5" />
         </button>
