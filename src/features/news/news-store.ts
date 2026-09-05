@@ -10,7 +10,14 @@ import type { NewsCategoryId } from "./types"
  */
 export const ALL_CATEGORIES = "__all__"
 
-export type NewsTab = NewsCategoryId | typeof ALL_CATEGORIES
+/**
+ * The saved tab: stories kept by hand, served from `news-saved-store` instead
+ * of fetched. Like `ALL_CATEGORIES` it is not a category id, and it only shows
+ * up once something has actually been saved.
+ */
+export const SAVED_CATEGORY = "__saved__"
+
+export type NewsTab = NewsCategoryId | typeof ALL_CATEGORIES | typeof SAVED_CATEGORY
 
 /** The persisted half of the store: what a config file carries. */
 export type NewsConfig = {

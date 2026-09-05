@@ -57,7 +57,17 @@ function feedProxy(): Plugin {
           return response.end("Not a feed this dev server will fetch.")
         }
 
-        fetch(target)
+        // The browser's own headers, not Node's: a few publishers (IGN among
+        // them) answer 403 to a request with no browser user-agent, which
+        // would make the dev server disagree with production over a feed that
+        // works perfectly well in the extension. Only these two are forwarded:
+        // the rest, cookies included, are none of the upstream's business.
+        fetch(target, {
+          headers: {
+            "user-agent": String(request.headers["user-agent"] ?? ""),
+            accept: "application/rss+xml, application/xml, text/xml, */*",
+          },
+        })
           .then(async (upstream) => {
             response.statusCode = upstream.status
             response.setHeader("content-type", "application/xml; charset=utf-8")

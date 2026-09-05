@@ -3,7 +3,7 @@ import { normalizeFeedUrl } from "@/lib/url"
 import { NewsApiError } from "./errors"
 import { parseFeed, parseFeedTitle } from "./feed-parser"
 import { hasHostAccess } from "./host-access"
-import { feedRequestUrl } from "./news-feeds"
+import { feedRequestUrl, isTimeout, withDeadline } from "./news-feeds"
 import type { NewsArticle } from "./types"
 
 /**
@@ -56,7 +56,14 @@ async function read(url: string, signal: AbortSignal): Promise<string> {
   const { hostname } = new URL(url)
   if (!(await hasHostAccess([originPatternOf(url)]))) throw new FeedAccessError(hostname)
 
-  const response = await fetch(feedRequestUrl(url), { signal })
+  let response: Response
+  try {
+    response = await fetch(feedRequestUrl(url), { signal: withDeadline(signal) })
+  } catch (error) {
+    if (isTimeout(error)) throw new NewsApiError(`${hostname} took too long to answer.`)
+    throw error
+  }
+
   if (!response.ok) {
     throw new NewsApiError(
       response.status === 404

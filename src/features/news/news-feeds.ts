@@ -4,8 +4,14 @@ import { parseFeed } from "./feed-parser"
 import { hasHostAccess } from "./host-access"
 import type { NewsArticle } from "./types"
 
-/** Plenty to scroll through, small enough to keep in `localStorage`. */
-export const PAGE_SIZE = 30
+/**
+ * How many stories a desk keeps. Enough for a long scroll, and small enough to
+ * cache: an article serialises to about 780 bytes, so sixty of them across
+ * every desk is roughly 0.6 MB, an eighth of what `localStorage` allows. That
+ * ceiling matters because `writeCachedNews` swallows a quota error, and a
+ * cache that silently stopped writing would mean refetching on every new tab.
+ */
+export const PAGE_SIZE = 60
 
 /**
  * The publisher's own address, which is what host access makes reachable.
@@ -17,8 +23,41 @@ export function feedRequestUrl(url: string): string {
   return import.meta.env.DEV ? `/__feed?url=${encodeURIComponent(url)}` : url
 }
 
+/**
+ * How long any one source is given to answer.
+ *
+ * A desk waits for every one of its feeds to settle before it can show
+ * anything, so a publisher whose server accepts the connection and then says
+ * nothing would keep the grid on placeholders for as long as the tab is open.
+ * That is not hypothetical: it is what one of the catalogue's own feeds did
+ * when this was written. A feed that misses the deadline is simply one fewer
+ * in the merge, which is what `Promise.allSettled` is there for.
+ */
+const REQUEST_TIMEOUT_MS = 12_000
+
+/**
+ * The caller's signal, plus a deadline. The two are distinct on purpose: an
+ * abort means the reader left and the result is unwanted, a timeout means this
+ * source is holding everyone else up.
+ */
+export function withDeadline(signal: AbortSignal): AbortSignal {
+  return AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+}
+
+/** True for the deadline above, false for a genuine abort by the caller. */
+export function isTimeout(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "TimeoutError"
+}
+
 async function fetchFeed(feed: Feed, signal: AbortSignal): Promise<NewsArticle[]> {
-  const response = await fetch(feedRequestUrl(feed.url), { signal })
+  let response: Response
+  try {
+    response = await fetch(feedRequestUrl(feed.url), { signal: withDeadline(signal) })
+  } catch (error) {
+    if (isTimeout(error)) throw new NewsApiError(`${feed.source} took too long to answer.`)
+    throw error
+  }
+
   if (!response.ok) {
     throw new NewsApiError(
       response.status === 429 || response.status === 503

@@ -4,11 +4,20 @@ import { customDesk, useCustomFeedsStore } from "./custom-feeds-store"
 import { NewsApiError } from "./errors"
 import { FEEDS, originsOf } from "./feed-catalog"
 import { decodeEntities } from "./feed-parser"
-import { feedCredits, fetchFeeds, PAGE_SIZE } from "./news-feeds"
+import { feedCredits, fetchFeeds, isTimeout, PAGE_SIZE, withDeadline } from "./news-feeds"
 import type { CustomDesk, NewsArticle, NewsCategory, NewsCategoryId } from "./types"
 
 async function fetchJson<T>(url: URL, signal: AbortSignal): Promise<T> {
-  const response = await fetch(url, { signal })
+  let response: Response
+  try {
+    response = await fetch(url, { signal: withDeadline(signal) })
+  } catch (error) {
+    if (isTimeout(error)) {
+      throw new NewsApiError("The news service took too long to answer.")
+    }
+    throw error
+  }
+
   if (!response.ok) {
     // 429/503 is a free API asking to be left alone for a moment, which is
     // worth saying plainly: retrying immediately would only dig deeper.

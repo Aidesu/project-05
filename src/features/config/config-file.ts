@@ -18,7 +18,12 @@ import { useChecklistStore, type ChecklistConfig } from "@/features/checklist/ch
 import type { ChecklistItem } from "@/features/checklist/types"
 import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import { NEWS_CATEGORIES } from "@/features/news/news-sources"
-import { ALL_CATEGORIES, useNewsStore, type NewsConfig } from "@/features/news/news-store"
+import {
+  ALL_CATEGORIES,
+  SAVED_CATEGORY,
+  useNewsStore,
+  type NewsConfig,
+} from "@/features/news/news-store"
 import type { CustomCategoryId, CustomDesk, NewsCategoryId } from "@/features/news/types"
 import { useSitesStore } from "@/features/sites/sites-store"
 import type { SiteDraft } from "@/features/sites/types"
@@ -422,9 +427,11 @@ function parseNews(
   const categories = allowed.filter((id) => wanted.has(id))
 
   const active = rename(raw.activeCategory)
+  // The two tabs that are not categories pass straight through; anything else
+  // has to name a desk this build still has.
   const activeCategory =
-    active === ALL_CATEGORIES
-      ? ALL_CATEGORIES
+    active === ALL_CATEGORIES || active === SAVED_CATEGORY
+      ? active
       : (asOneOf(active, allowed) ?? categories[0] ?? CATEGORY_IDS[0])
 
   return { enabled: raw.enabled === true, categories, activeCategory }

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { ArrowUpRight, ExternalLink } from "lucide-react"
+import { ArrowUpRight, Bookmark, ExternalLink } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +13,7 @@ import {
 import { hostnameOf, safeImageUrl } from "@/lib/url"
 import { relativeTime } from "@/lib/relative-time"
 
+import { selectIsSaved, useNewsSavedStore } from "./news-saved-store"
 import type { NewsArticle } from "./types"
 
 /**
@@ -34,6 +35,24 @@ function ArticleImage({ src, alt }: { src: string | undefined; alt: string }) {
       onError={() => setFailed(true)}
       className="max-h-56 w-full rounded-md object-cover"
     />
+  )
+}
+
+/**
+ * The same toggle the card carries, offered again here because this is where
+ * the story is actually read and so where the decision to keep it is made.
+ * A component of its own so its hooks never sit behind the dialog's `article`
+ * being null.
+ */
+function SaveArticleButton({ article }: { article: NewsArticle }) {
+  const saved = useNewsSavedStore(selectIsSaved(article.url))
+  const toggle = useNewsSavedStore((state) => state.toggle)
+
+  return (
+    <Button variant="secondary" size="sm" aria-pressed={saved} onClick={() => toggle(article)}>
+      <Bookmark className={saved ? "fill-current" : undefined} />
+      {saved ? "Saved" : "Save"}
+    </Button>
   )
 }
 
@@ -84,6 +103,7 @@ export function NewsArticleDialog({
           <DialogFooter className="sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">{hostnameOf(article.url)}</p>
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <SaveArticleButton article={article} />
               {article.secondaryLink && (
                 <Button variant="secondary" size="sm" asChild>
                   <a href={article.secondaryLink.url} target="_blank" rel="noreferrer noopener">

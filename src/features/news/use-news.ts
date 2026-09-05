@@ -15,9 +15,10 @@ type NewsResult =
    * than only retry: the desk's publishers have not been granted. */
   | { status: "error"; message: string; needsAccess: boolean }
 
-/** Ceiling on a merged feed: "All" with every category on would otherwise put
- * a couple of hundred cards in the grid for no one to ever scroll to. */
-const MERGED_LIMIT = 60
+/** Ceiling on a merged feed. Well past what anyone scrolls in one sitting, but
+ * the grid only mounts a screenful at a time, so the cost of the rest is the
+ * array itself rather than a hundred cards nobody reaches. */
+const MERGED_LIMIT = 150
 
 /**
  * Newest first, one card per story however many categories carried it.

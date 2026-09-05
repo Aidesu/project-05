@@ -23,7 +23,7 @@
     },
     { "source": "The Guardian", "url": "https://www.theguardian.com/science/rss" },
     { "source": "Phys.org", "url": "https://phys.org/rss-feed/" },
-    { "source": "Quanta", "url": "https://api.quantamagazine.org/feed/" },
+    { "source": "Quanta", "url": "https://www.quantamagazine.org/feed/" },
     { "source": "NASA", "url": "https://www.nasa.gov/rss/dyn/breaking_news.rss" }
   ],
   "sports": [
@@ -43,7 +43,7 @@
     { "source": "Polygon", "url": "https://www.polygon.com/rss/index.xml" },
     { "source": "PC Gamer", "url": "https://www.pcgamer.com/rss/" },
     { "source": "Rock Paper Shotgun", "url": "https://www.rockpapershotgun.com/feed" },
-    { "source": "IGN", "url": "https://feeds.ign.com/ign/games-all" },
+    { "source": "IGN", "url": "https://www.ign.com/rss/articles/feed?tags=games" },
     { "source": "GameSpot", "url": "https://www.gamespot.com/feeds/news" }
   ],
   "screen": [
@@ -54,13 +54,13 @@
   "music": [
     { "source": "Pitchfork", "url": "https://pitchfork.com/feed/feed-news/rss" },
     { "source": "NME", "url": "https://www.nme.com/news/music/feed" },
-    { "source": "Stereogum", "url": "https://www.stereogum.com/feed/" },
+    { "source": "Stereogum", "url": "https://stereogum.com/feed" },
     { "source": "Consequence", "url": "https://consequence.net/feed/" },
     { "source": "Billboard", "url": "https://www.billboard.com/feed/" }
   ],
   "openSource": [
     { "source": "OMG! Ubuntu", "url": "https://www.omgubuntu.co.uk/feed" },
-    { "source": "It's FOSS", "url": "https://itsfoss.com/feed/" },
+    { "source": "It's FOSS", "url": "https://feed.itsfoss.com/" },
     { "source": "The GitHub Blog", "url": "https://github.blog/feed/" },
     { "source": "Phoronix", "url": "https://www.phoronix.com/rss.php" }
   ],

@@ -1,15 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Eye, RefreshCw, ShieldCheck } from "lucide-react"
+import { Bookmark, Eye, RefreshCw, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { isSafeHttpUrl } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
 import { useHostAccess, useHostAccessStore } from "./host-access"
 import { NEWS_CARD_HEIGHT, NewsCard } from "./news-card"
+import { useNewsSavedStore } from "./news-saved-store"
 import { newsCategory, originsFor } from "./news-sources"
 import { useNews } from "./use-news"
 import { useNewsSeenStore } from "./news-seen-store"
-import { ALL_CATEGORIES, useNewsStore } from "./news-store"
+import { ALL_CATEGORIES, SAVED_CATEGORY, useNewsStore } from "./news-store"
 import { useNewsCategories } from "./use-news-categories"
 import type { NewsTab } from "./news-store"
 import type { NewsArticle } from "./types"
@@ -27,6 +29,25 @@ const WHEEL_EASING = 0.2
  * a heavily zoomed window: no step changes on the way.
  */
 const NEWS_GRID = "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-3"
+
+/**
+ * Cards mounted before anything is scrolled, and how many more join them each
+ * time the end of the list comes near. A new tab paints a screenful instead of
+ * the whole feed: at the ceiling above that would be a hundred and fifty cards
+ * and twice as many images, nearly all of them below the fold.
+ */
+const CARDS_PER_PAGE = 24
+
+/**
+ * How far ahead of the last card the next batch is asked for. Generous on
+ * purpose: the batch has to be mounted before it is scrolled to, or the reader
+ * meets the end of the list and waits.
+ */
+const LOAD_AHEAD = "800px"
+
+/** One array, so "no stories yet" keeps a stable identity between renders and
+ * everything downstream can compare by reference. */
+const NO_ARTICLES: NewsArticle[] = []
 
 /**
  * The full story, and the dialog machinery it needs, waits until a card is
@@ -82,18 +103,39 @@ export function NewsFeed() {
     return chosen.filter((id) => known.has(id))
   }, [available, chosen])
 
+  // Saved stories carry their own copy of the article, so they outlive the
+  // feed they came from. Their addresses were gated when they were saved, but
+  // they have sat in `localStorage` since, so they pass the same guard the
+  // fetched ones do before ending up in an `href`.
+  const savedStore = useNewsSavedStore((state) => state.articles)
+  const saved = useMemo(
+    () => savedStore.filter((article) => isSafeHttpUrl(article.url)),
+    [savedStore]
+  )
+  const savedTab = saved.length > 0
+
   // A category switched off in settings shouldn't leave the feed empty, so the
-  // active tab is derived rather than corrected in the store.
-  const active: NewsTab | null =
-    activeCategory === ALL_CATEGORIES || categories.includes(activeCategory)
-      ? activeCategory
-      : (categories[0] ?? null)
+  // active tab is derived rather than corrected in the store. Written as a
+  // function so the two non-category tabs are ruled out before `categories` is
+  // asked about the rest.
+  const usable = (tab: NewsTab): boolean => {
+    if (tab === ALL_CATEGORIES) return true
+    if (tab === SAVED_CATEGORY) return savedTab
+    return categories.includes(tab)
+  }
+
+  const active: NewsTab | null = usable(activeCategory)
+    ? activeCategory
+    : (categories[0] ?? (savedTab ? SAVED_CATEGORY : null))
+
+  const showingSaved = active === SAVED_CATEGORY
 
   // What the active tab actually loads: every chosen category under "All",
-  // one under a category tab, nothing when the feed is off or empty. Memoised
-  // because the hook reloads whenever this list changes identity.
+  // one under a category tab, nothing when the feed is off, empty, or showing
+  // saved stories, which never touch the network. Memoised because the hook
+  // reloads whenever this list changes identity.
   const loading = useMemo(() => {
-    if (!enabled || active === null) return []
+    if (!enabled || active === null || active === SAVED_CATEGORY) return []
     return active === ALL_CATEGORIES ? categories : [active]
   }, [enabled, active, categories])
 
@@ -128,6 +170,51 @@ export function NewsFeed() {
     active !== ALL_CATEGORIES &&
     active.startsWith("custom:") &&
     available.find((category) => category.id === active)?.origins.length === 0
+
+  // The grid draws from one list either way: the store on the saved tab, the
+  // fetched headlines everywhere else.
+  const articles = showingSaved ? saved : news.status === "ready" ? news.articles : NO_ARTICLES
+
+  // Grows as the list is scrolled. Reset whenever the tab changes or a reload
+  // brings a different set, so a new feed starts at the top with one screenful
+  // rather than inheriting however far the last one had been opened up.
+  const [shown, setShown] = useState(CARDS_PER_PAGE)
+  const [shownFor, setShownFor] = useState(articles)
+  const sentinel = useRef<HTMLLIElement>(null)
+
+  // Adjusted during the render that brings a new list rather than in an effect
+  // afterwards: React re-runs the component before committing, so the grid
+  // never paints one frame of the previous tab's scroll depth. Comparing by
+  // reference is what `NO_ARTICLES` is for.
+  if (shownFor !== articles) {
+    setShownFor(articles)
+    setShown(CARDS_PER_PAGE)
+  }
+
+  useEffect(() => {
+    if (shown >= articles.length) return
+
+    const marker = sentinel.current
+    const list = listRef.current
+    if (!marker || !list) return
+
+    // Rebuilt on every batch rather than left running: an observer whose target
+    // stays intersecting after the list grows reports no change, and the feed
+    // would stop loading with the reader still at the bottom. Re-observing
+    // always delivers a fresh reading, so batches chain until the marker is
+    // genuinely out of range.
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShown((current) => Math.min(current + CARDS_PER_PAGE, articles.length))
+        }
+      },
+      { root: list, rootMargin: `${LOAD_AHEAD} 0px` }
+    )
+
+    observer.observe(marker)
+    return () => observer.disconnect()
+  }, [shown, articles.length])
 
   const [selected, setSelected] = useState<NewsArticle | null>(null)
   // Sticky, like the settings sheet: mounted once, so a second story opens
@@ -256,8 +343,23 @@ export function NewsFeed() {
 
   return (
     <section className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-col gap-2">
-      {categories.length > 1 && (
+      {(categories.length > 1 || savedTab) && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {/* Sits ahead of "All" and only once something has been kept, so the
+              row is unchanged for anyone who never saves a story. */}
+          {savedTab && (
+            <Button
+              size="xs"
+              variant={showingSaved ? "default" : "outline"}
+              className="gap-1"
+              onClick={() => setActiveCategory(SAVED_CATEGORY)}
+              aria-pressed={showingSaved}
+            >
+              <Bookmark className="size-3" />
+              Saved
+            </Button>
+          )}
+
           {/* Same shape as the board's "All" filter: leading, outlined, with
               the eye that means "hold nothing back". */}
           <Button
@@ -286,7 +388,7 @@ export function NewsFeed() {
         </div>
       )}
 
-      {loading.length === 0 && (
+      {loading.length === 0 && !showingSaved && (
         <p className="text-center text-sm text-muted-foreground">
           Pick a news category in settings.
         </p>
@@ -294,7 +396,7 @@ export function NewsFeed() {
 
       {/* Placeholders rather than a spinner: the grid keeps its shape while
           the headlines land, so the page below doesn't jump. */}
-      {news.status === "loading" && (
+      {!showingSaved && news.status === "loading" && (
         <div className={cn(NEWS_GRID, "min-h-0 flex-1 overflow-hidden")}>
           {Array.from({ length: 8 }, (_, index) => (
             <div
@@ -308,7 +410,7 @@ export function NewsFeed() {
         </div>
       )}
 
-      {news.status === "error" && (
+      {!showingSaved && news.status === "error" && (
         <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
           <p>{news.message}</p>
           {news.needsAccess ? (
@@ -337,13 +439,13 @@ export function NewsFeed() {
         </p>
       )}
 
-      {news.status === "ready" && news.articles.length === 0 && !emptyDesk && (
+      {!showingSaved && news.status === "ready" && news.articles.length === 0 && !emptyDesk && (
         <p className="text-center text-sm text-muted-foreground">
           Nothing filed under this category today.
         </p>
       )}
 
-      {news.status === "ready" && news.articles.length > 0 && (
+      {articles.length > 0 && (
         <>
           {/* The one scrolling region on the page, and it scrolls without a
               scrollbar: the grid ends flush with the wallpaper. */}
@@ -352,29 +454,52 @@ export function NewsFeed() {
             onPointerEnter={() => setDialogLoaded(true)}
             className={cn(NEWS_GRID, "scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain")}
           >
-            {news.articles.map((article) => (
-              <li key={article.id}>
+            {articles.slice(0, shown).map((article) => (
+              // Off-screen cards skip layout and paint entirely; the intrinsic
+              // size keeps the scrollbar honest while they are skipped, and the
+              // `auto` keyword lets the browser use the real height once a card
+              // has been rendered even once.
+              <li
+                key={article.id}
+                className="[content-visibility:auto] [contain-intrinsic-size:auto_18rem]"
+              >
                 <NewsCard article={article} onOpen={openArticle} />
               </li>
             ))}
+
+            {/* What the observer watches. A grid cell of its own, spanning the
+                row so it never sits beside a card and shifts one out of line. */}
+            {shown < articles.length && (
+              <li ref={sentinel} aria-hidden className="col-span-full h-px" />
+            )}
           </ul>
 
           {/* Credit and refresh sit on one quiet line under the list; the
               refresh only appears once the section is hovered or focused. */}
           <div className="group/meta flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            {/* One category credits its sources here; "All" leaves it to the
-                cards, each of which names its own publisher. */}
-            {active && active !== ALL_CATEGORIES && (
-              <span>{newsCategory(active).attribution}</span>
+            {showingSaved ? (
+              // Nothing to credit and nothing to refetch: these came from the
+              // store, and they only change when someone saves or lets go.
+              <span>
+                {saved.length} saved {saved.length === 1 ? "story" : "stories"}
+              </span>
+            ) : (
+              <>
+                {/* One category credits its sources here; "All" leaves it to
+                    the cards, each of which names its own publisher. */}
+                {active && active !== ALL_CATEGORIES && (
+                  <span>{newsCategory(active).attribution}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={refreshNews}
+                  aria-label="Refresh the news"
+                  className="opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/meta:opacity-100"
+                >
+                  <RefreshCw className="size-3" />
+                </button>
+              </>
             )}
-            <button
-              type="button"
-              onClick={refreshNews}
-              aria-label="Refresh the news"
-              className="opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/meta:opacity-100"
-            >
-              <RefreshCw className="size-3" />
-            </button>
           </div>
         </>
       )}
