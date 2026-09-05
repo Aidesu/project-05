@@ -106,7 +106,7 @@ export function ConfigSettings() {
     <>
       <Section
         title="Configuration"
-        hint="One file with everything on this page: theme, background, sites, cards and where they sit. Importing replaces this device's setup with the file's."
+        hint="One file with everything on this page: theme, background, sites, cards and where they sit, plus your news desks and the stories you saved. Importing replaces this device's setup with the file's."
       >
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={() => void handleExport()} disabled={busy}>

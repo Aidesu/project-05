@@ -17,6 +17,10 @@ import {
 import { useChecklistStore, type ChecklistConfig } from "@/features/checklist/checklist-store"
 import type { ChecklistItem } from "@/features/checklist/types"
 import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
+import {
+  useNewsSavedStore,
+  type SavedArticle,
+} from "@/features/news/news-saved-store"
 import { NEWS_CATEGORIES } from "@/features/news/news-sources"
 import {
   ALL_CATEGORIES,
@@ -30,7 +34,7 @@ import type { SiteDraft } from "@/features/sites/types"
 import { useWeatherStore, type WeatherConfig } from "@/features/weather/weather-store"
 import type { ManualLocation } from "@/features/weather/types"
 import { isHexColor } from "@/lib/color"
-import { normalizeFeedUrl } from "@/lib/url"
+import { isSafeHttpUrl, normalizeFeedUrl, safeImageUrl } from "@/lib/url"
 import { CORNERS, type Corner } from "@/lib/corner"
 
 import {
@@ -44,8 +48,12 @@ import {
  * Bumped whenever the export shape changes. Independent of any store's own
  * `version`: this governs a file that can outlive the browser it was written
  * in, and that is meant to be carried to a different one.
+ *
+ * 2 added the news desks someone built and the stories they kept. Files at
+ * version 1 still import: every field either side of that is optional, and a
+ * file that carries neither simply leaves both stores alone.
  */
-export const CONFIG_EXPORT_VERSION = 1
+export const CONFIG_EXPORT_VERSION = 2
 
 const APP = "mainboard.config"
 
@@ -63,6 +71,12 @@ const CATEGORY_IDS = NEWS_CATEGORIES.map((category) => category.id)
 /** Mirrors the ceilings `custom-feeds-store` enforces on what it is handed. */
 const MAX_IMPORTED_DESKS = 12
 const MAX_IMPORTED_FEEDS = 20
+const MAX_IMPORTED_SAVED = 200
+
+/** Long enough for a headline or a standfirst, short enough that a file cannot
+ * push a novel into a card. */
+const MAX_TEXT = 500
+const MAX_FACTS = 6
 
 // ------------------------------------------------------------- file shape
 
@@ -103,6 +117,15 @@ export type ConfigFile = {
   news?: NewsConfig
   /** Desks built by hand, carried separately: they are their own store. */
   newsDesks?: CustomDesk[]
+  /**
+   * Stories kept by hand. Each carries its own copy of the article, which is
+   * the point of saving one: the feed it came from moved on long ago.
+   *
+   * Only what someone chose to keep travels. Which stories have merely been
+   * *opened* stays on the device: that is a reading history, and this file is
+   * meant to be carried around and handed to another machine.
+   */
+  newsSaved?: SavedArticle[]
 }
 
 /** A parsed file, in the shape each store takes back. */
@@ -114,6 +137,7 @@ export type ConfigImport = {
   checklist?: ChecklistConfig
   news?: NewsConfig
   newsDesks?: CustomDesk[]
+  newsSaved?: SavedArticle[]
 }
 
 // ----------------------------------------------------------------- export
@@ -157,6 +181,7 @@ export async function buildConfigExport(
     useChecklistStore.getState()
   const { enabled: newsEnabled, categories, activeCategory } = useNewsStore.getState()
   const { desks } = useCustomFeedsStore.getState()
+  const { articles: savedArticles } = useNewsSavedStore.getState()
 
   const file: ConfigFile = {
     app: APP,
@@ -181,6 +206,7 @@ export async function buildConfigExport(
     checklist: { enabled: checklistEnabled, position: checklistPosition, items },
     news: { enabled: newsEnabled, categories, activeCategory },
     newsDesks: desks,
+    newsSaved: savedArticles,
   }
 
   return { file, skippedAssets: report.skipped }
@@ -410,6 +436,77 @@ function parseNewsDesks(raw: unknown): {
   return { desks, ids }
 }
 
+/** Trimmed, clamped, and `undefined` rather than empty. */
+function asText(value: unknown): string | undefined {
+  const text = asString(value)?.trim().slice(0, MAX_TEXT)
+  return text || undefined
+}
+
+/**
+ * One kept story, rebuilt field by field.
+ *
+ * Everything here ends up on a card and in an `href`: the address goes through
+ * the same `isSafeHttpUrl` gate the fetched stories pass, the picture through
+ * `safeImageUrl`, and every string is clamped. A story missing an address, a
+ * headline or a date is dropped rather than patched, since each of the three
+ * is load-bearing (the last one sorts the tab).
+ */
+function parseSavedArticle(raw: unknown): SavedArticle | null {
+  if (!isRecord(raw)) return null
+
+  const url = asString(raw.url)
+  const title = asText(raw.title)
+  if (!url || !isSafeHttpUrl(url) || !title) return null
+
+  const publishedAt = raw.publishedAt
+  if (typeof publishedAt !== "number" || !Number.isFinite(publishedAt)) return null
+
+  const link = isRecord(raw.secondaryLink) ? raw.secondaryLink : null
+  const linkUrl = asString(link?.url)
+  const linkLabel = asText(link?.label)
+
+  const facts = (Array.isArray(raw.facts) ? raw.facts : [])
+    .slice(0, MAX_FACTS)
+    .flatMap((fact: unknown) => {
+      const text = asText(fact)
+      return text ? [text] : []
+    })
+
+  const savedAt = raw.savedAt
+  return {
+    // Derived rather than trusted: the id is only ever a list key, and two
+    // stories sharing one from a hand-edited file would collide in the grid.
+    id: `saved-${url}`,
+    title,
+    url,
+    source: asText(raw.source) ?? new URL(url).hostname,
+    publishedAt,
+    summary: asText(raw.summary),
+    imageUrl: safeImageUrl(asString(raw.imageUrl)),
+    author: asText(raw.author),
+    facts: facts.length > 0 ? facts : undefined,
+    secondaryLink:
+      linkUrl && linkLabel && isSafeHttpUrl(linkUrl) ? { label: linkLabel, url: linkUrl } : undefined,
+    savedAt: typeof savedAt === "number" && Number.isFinite(savedAt) ? savedAt : Date.now(),
+  }
+}
+
+/** Kept stories from a file, newest first and one entry per address. */
+function parseNewsSaved(raw: unknown): SavedArticle[] {
+  if (!Array.isArray(raw)) return []
+
+  const seen = new Set<string>()
+  const articles: SavedArticle[] = []
+  for (const entry of raw) {
+    if (articles.length >= MAX_IMPORTED_SAVED) break
+    const article = parseSavedArticle(entry)
+    if (!article || seen.has(article.url)) continue
+    seen.add(article.url)
+    articles.push(article)
+  }
+  return articles
+}
+
 function parseNews(
   raw: unknown,
   deskIds: Map<string, CustomCategoryId>
@@ -485,6 +582,7 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
     // An explicit empty list is an answer: the file describes someone with no
     // custom desks, and importing it should leave none behind.
     newsDesks: Array.isArray(data.newsDesks) ? newsDesks.desks : undefined,
+    newsSaved: Array.isArray(data.newsSaved) ? parseNewsSaved(data.newsSaved) : undefined,
   }
 
   if (describeConfig(config).length === 0) {
@@ -527,6 +625,11 @@ export function describeConfig(config: ConfigImport): string[] {
   if (config.newsDesks?.length) {
     lines.push(
       `${config.newsDesks.length} custom desk${config.newsDesks.length === 1 ? "" : "s"}`
+    )
+  }
+  if (config.newsSaved?.length) {
+    lines.push(
+      `${config.newsSaved.length} saved stor${config.newsSaved.length === 1 ? "y" : "ies"}`
     )
   }
 

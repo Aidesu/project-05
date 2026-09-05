@@ -19,6 +19,8 @@ type NewsSavedState = {
   /** Returns whether the story is saved *after* the toggle. */
   toggle: (article: NewsArticle) => boolean
   remove: (url: string) => void
+  /** Wholesale replacement from an imported config file (`@/features/config`). */
+  importConfig: (articles: SavedArticle[]) => void
 }
 
 /**
@@ -44,6 +46,10 @@ export const useNewsSavedStore = create<NewsSavedState>()(
 
       remove: (url) =>
         set((state) => ({ articles: state.articles.filter((saved) => saved.url !== url) })),
+
+      // Capped here as well as at the door: a file is not obliged to have
+      // respected the ceiling that was in force when it was written.
+      importConfig: (articles) => set({ articles: articles.slice(0, LIMIT) }),
     }),
     {
       name: "mainboard.news.saved",
