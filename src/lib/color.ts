@@ -1,5 +1,18 @@
 export type Rgb = { r: number; g: number; b: number }
 
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
+
+/**
+ * Whether a string is one of the two hex forms this app stores. Every colour
+ * the UI produces is hex (the native colour input gives nothing else), and
+ * they are interpolated straight into CSS — `radial-gradient(…, ${color} …)`
+ * in `gradient-surface.tsx` — so a colour arriving from a config file is
+ * checked here before it can smuggle another layer into that declaration.
+ */
+export function isHexColor(value: string): boolean {
+  return HEX_COLOR.test(value)
+}
+
 /** Parses "#rgb" or "#rrggbb"; falls back to black rather than throwing. */
 export function hexToRgb(hex: string): Rgb {
   const clean = hex.replace("#", "").trim()

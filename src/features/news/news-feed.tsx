@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Eye, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-import { NewsArticleDialog } from "./news-article-dialog"
 import { NEWS_CARD_HEIGHT, NewsCard } from "./news-card"
 import { newsCategory, NEWS_CATEGORIES } from "./news-sources"
 import { useNews } from "./use-news"
@@ -26,6 +25,15 @@ const WHEEL_EASING = 0.2
  * a heavily zoomed window — no step changes on the way.
  */
 const NEWS_GRID = "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-3"
+
+/**
+ * The full story, and the dialog machinery it needs, waits until a card is
+ * actually opened — the grid itself only ever shows headlines. Fetched as
+ * soon as the pointer reaches the list, so the click that follows doesn't.
+ */
+const NewsArticleDialog = lazy(() =>
+  import("./news-article-dialog").then((module) => ({ default: module.NewsArticleDialog }))
+)
 
 /**
  * The element the browser will scroll for a wheel landing here, or null when
@@ -81,7 +89,20 @@ export function NewsFeed() {
   const news = useNews(loading)
 
   const [selected, setSelected] = useState<NewsArticle | null>(null)
+  // Sticky, like the settings sheet: mounted once, so a second story opens
+  // without suspending.
+  const [dialogLoaded, setDialogLoaded] = useState(false)
   const listRef = useRef<HTMLUListElement>(null)
+
+  // Stable, so `NewsCard`'s memoisation actually holds across a re-render.
+  const openArticle = useCallback(
+    (article: NewsArticle) => {
+      setDialogLoaded(true)
+      markSeen(article.url)
+      setSelected(article)
+    },
+    [markSeen]
+  )
 
   // Nothing else on the page scrolls, so a wheel anywhere on it — over the
   // greeting, the board, the empty margins — is meant for the feed. Panels
@@ -269,17 +290,12 @@ export function NewsFeed() {
               scrollbar: the grid ends flush with the wallpaper. */}
           <ul
             ref={listRef}
+            onPointerEnter={() => setDialogLoaded(true)}
             className={cn(NEWS_GRID, "scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain")}
           >
             {news.articles.map((article) => (
               <li key={article.id}>
-                <NewsCard
-                  article={article}
-                  onOpen={() => {
-                    markSeen(article.url)
-                    setSelected(article)
-                  }}
-                />
+                <NewsCard article={article} onOpen={openArticle} />
               </li>
             ))}
           </ul>
@@ -304,7 +320,11 @@ export function NewsFeed() {
         </>
       )}
 
-      <NewsArticleDialog article={selected} onOpenChange={() => setSelected(null)} />
+      {dialogLoaded && (
+        <Suspense fallback={null}>
+          <NewsArticleDialog article={selected} onOpenChange={() => setSelected(null)} />
+        </Suspense>
+      )}
     </section>
   )
 }

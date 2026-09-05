@@ -1,4 +1,5 @@
 import { getAsset, putAsset } from "@/lib/asset-store"
+import { isSafeHttpUrl } from "@/lib/url"
 
 /**
  * How bytes are referenced inside the app: either a URL, which means the same
@@ -51,18 +52,29 @@ export async function exportAsset(
   return { type: "data", dataUrl: await blobToDataUrl(blob) }
 }
 
+/** The only two kinds of inlined bytes an export ever holds: an icon or a wallpaper. */
+const MEDIA_DATA_URL = /^data:(?:image|video)\/[a-z0-9.+-]+(?:;[^,]*)?,/i
+
+function isMediaDataUrl(value: string): boolean {
+  return MEDIA_DATA_URL.test(value)
+}
+
 /** Turns an exported reference back into one this browser can use. */
 export async function importAsset(raw: unknown): Promise<StoredAsset | undefined> {
   if (typeof raw !== "object" || raw === null) return undefined
   const value = raw as Record<string, unknown>
 
-  if (value.type === "url" && typeof value.url === "string") {
+  // The file names an address rather than carrying bytes. It ends up in an
+  // `<img src>`, a `<video src>` or a CSS `url()`, so only http(s) survives —
+  // a `javascript:` or `data:` string here came from somewhere else's file.
+  if (value.type === "url" && typeof value.url === "string" && isSafeHttpUrl(value.url)) {
     return { type: "url", url: value.url }
   }
 
-  // Only `data:` — `fetch` would happily go to the network for anything else,
-  // and a config file is not a thing to make requests on behalf of.
-  if (value.type === "data" && typeof value.dataUrl === "string" && value.dataUrl.startsWith("data:")) {
+  // Only a `data:` picture or video — `fetch` would happily go to the network
+  // for anything else, and a config file is not a thing to make requests on
+  // behalf of; the media types keep the blob to what the app actually shows.
+  if (value.type === "data" && typeof value.dataUrl === "string" && isMediaDataUrl(value.dataUrl)) {
     try {
       const blob = await (await fetch(value.dataUrl)).blob()
       return { type: "upload", assetId: await putAsset(blob) }

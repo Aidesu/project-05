@@ -1,26 +1,53 @@
-import { useMemo, useState } from "react"
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core"
-import { rectSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
+import { lazy, Suspense, useEffect, useMemo, useState } from "react"
 import { Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
 import { SiteBubble } from "./site-bubble"
-import { SiteFormDialog } from "./site-form-dialog"
 import { useSitesStore } from "./sites-store"
 import type { Site } from "./types"
 
 // Not a real tag: no site ever carries it, so it can't collide with one a
 // user types. Selecting it bypasses the hidden filter entirely.
 const ALL_FILTER = "__all__"
+
+/**
+ * The add/edit form — text inputs, the tag field, the icon picker, the delete
+ * confirmation — only ever appears once someone reaches for it, so it is not
+ * part of what a new tab has to parse before painting the board.
+ */
+const SiteFormDialog = lazy(() =>
+  import("./site-form-dialog").then((module) => ({ default: module.SiteFormDialog }))
+)
+
+/**
+ * Drag-and-drop is the last thing a new tab needs and one of the largest
+ * things it used to load, so the bubbles render without it and it is fetched
+ * once the page goes idle — the grip that uses it is invisible until hover,
+ * which is always later than that.
+ */
+const SortableSiteList = lazy(() => import("./sortable-site-list"))
+
+/** Fetches on idle, and no later than the first pointer over the board. */
+function useIdleFlag(): [boolean, () => void] {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    if (ready) return
+
+    // Not every browser that runs an extension has `requestIdleCallback`
+    // (Safari); a timeout gets there too, just less politely.
+    if (typeof requestIdleCallback === "function") {
+      const handle = requestIdleCallback(() => setReady(true), { timeout: 2000 })
+      return () => cancelIdleCallback(handle)
+    }
+
+    const handle = setTimeout(() => setReady(true), 200)
+    return () => clearTimeout(handle)
+  }, [ready])
+
+  return [ready, () => setReady(true)]
+}
 
 export function SiteBoard() {
   const sites = useSitesStore((state) => state.sites)
@@ -29,13 +56,10 @@ export function SiteBoard() {
   const [activeTag, setActiveTag] = useState<string | null>(null)
   const [editing, setEditing] = useState<Site | undefined>(undefined)
   const [dialogOpen, setDialogOpen] = useState(false)
-
-  // A short activation distance keeps ordinary clicks (opening a site,
-  // pressing edit) from being swallowed as an accidental drag.
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  // Sticky, like the settings sheet: the form stays mounted once fetched so
+  // reopening it never suspends.
+  const [formLoaded, setFormLoaded] = useState(false)
+  const [sortable, loadSortable] = useIdleFlag()
 
   const tags = useMemo(
     () => [...new Set(sites.flatMap((site) => site.tags))].sort(),
@@ -59,24 +83,31 @@ export function SiteBoard() {
   }, [sites, effectiveTag])
 
   function openAdd() {
+    setFormLoaded(true)
     setEditing(undefined)
     setDialogOpen(true)
   }
 
   function openEdit(site: Site) {
+    setFormLoaded(true)
     setEditing(site)
     setDialogOpen(true)
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event
-    if (over && active.id !== over.id) {
-      reorderSite(String(active.id), String(over.id))
-    }
+  /** The bubbles as they render before — and while — dnd-kit is loading. */
+  const bubbles = visibleSites.map((site) => (
+    <SiteBubble key={site.id} site={site} onEdit={openEdit} />
+  ))
+
+  function handlePointerEnter() {
+    // Hovering the board is what reveals the add, edit and drag controls, so
+    // it is the latest either of them can still be worth fetching.
+    setFormLoaded(true)
+    loadSortable()
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4" onPointerEnter={handlePointerEnter}>
       {(tags.length > 0 || sites.some((site) => site.hidden)) && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           <Button
@@ -121,20 +152,19 @@ export function SiteBoard() {
               theirs alone. Add sits outside that flow (absolute), so it never
               shifts where the sites themselves land. */}
           <div className="group/sites relative flex min-h-20 flex-wrap items-start gap-2">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={visibleSites.map((site) => site.id)}
-                strategy={rectSortingStrategy}
-              >
-                {visibleSites.map((site) => (
-                  <SiteBubble key={site.id} site={site} onEdit={openEdit} />
-                ))}
-              </SortableContext>
-            </DndContext>
+            {sortable ? (
+              // The plain bubbles stand in while the chunk lands, so the board
+              // never blinks out — same markup, minus the grip.
+              <Suspense fallback={bubbles}>
+                <SortableSiteList
+                  sites={visibleSites}
+                  onEdit={openEdit}
+                  onReorder={reorderSite}
+                />
+              </Suspense>
+            ) : (
+              bubbles
+            )}
 
             {/* Hidden until the section is hoveredfocus-within too, so it
                 stays reachable by keyboard. */}
@@ -155,7 +185,11 @@ export function SiteBoard() {
         </div>
       )}
 
-      <SiteFormDialog open={dialogOpen} onOpenChange={setDialogOpen} site={editing} />
+      {formLoaded && (
+        <Suspense fallback={null}>
+          <SiteFormDialog open={dialogOpen} onOpenChange={setDialogOpen} site={editing} />
+        </Suspense>
+      )}
     </div>
   )
 }

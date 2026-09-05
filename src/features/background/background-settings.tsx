@@ -85,6 +85,13 @@ export function BackgroundSettings() {
     event.target.value = "" // so re-picking the same file still fires onChange
     if (!file) return
 
+    // The picker's `accept` is a hint, not a guarantee: a drag-and-drop or a
+    // renamed file can still land here, and the wrong bytes in IndexedDB show
+    // up later as a background that silently never paints.
+    if (!file.type.startsWith(`${media}/`)) {
+      toast.error(media === "image" ? "Choose an image file." : "Choose a video file.")
+      return
+    }
     if (file.size > MAX_UPLOAD_MB[media] * 1024 * 1024) {
       toast.error(`File too large (max ${MAX_UPLOAD_MB[media]} MB).`)
       return

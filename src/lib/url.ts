@@ -24,6 +24,38 @@ export function normalizeUrl(input: string): string | null {
   return url.toString()
 }
 
+/**
+ * Whether a string is an `http:`/`https:` URL and nothing else. The guard for
+ * addresses that arrive from outside the UI — a config file, a news API — and
+ * end up in an `href`, an `<img src>` or a CSS `url()`: everything the form
+ * fields accept already went through `normalizeUrl`, but nothing else did.
+ */
+export function isSafeHttpUrl(value: string): boolean {
+  if (value.length > MAX_URL_LENGTH) return false
+
+  try {
+    const { protocol } = new URL(value)
+    return protocol === "http:" || protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A remote image address worth rendering, or `undefined`. Only `https:`: an
+ * extension page loading a picture over plain http announces what is on the
+ * board to anyone on the wire, and the manifest's CSP blocks it anyway.
+ */
+export function safeImageUrl(value: string | undefined): string | undefined {
+  if (!value || value.length > MAX_URL_LENGTH) return undefined
+
+  try {
+    return new URL(value).protocol === "https:" ? value : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Display host for an already-normalised URL"www." dropped, never throws. */
 export function hostnameOf(url: string): string {
   try {

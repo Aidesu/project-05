@@ -246,7 +246,12 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
             <div className="flex items-center gap-3">
               <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted">
                 {iconPreview ? (
-                  <img src={iconPreview} alt="" className="size-full object-cover" />
+                  <img
+                    src={iconPreview}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="size-full object-cover"
+                  />
                 ) : (
                   <span className="text-lg font-semibold uppercase text-muted-foreground">
                     {(fields.title || fields.url).charAt(0)}

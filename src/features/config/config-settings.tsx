@@ -49,9 +49,13 @@ export function ConfigSettings() {
       const link = document.createElement("a")
       link.href = url
       link.download = configExportFilename()
+      link.rel = "noopener"
       link.click()
 
-      URL.revokeObjectURL(url)
+      // Revoked on the next task, not here: Firefox reads the blob after the
+      // click returns, and pulling the URL out from under it saves an empty
+      // file.
+      setTimeout(() => URL.revokeObjectURL(url), 0)
 
       if (skippedAssets > 0) {
         toast.warning(

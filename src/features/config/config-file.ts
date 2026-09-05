@@ -22,6 +22,7 @@ import { useSitesStore } from "@/features/sites/sites-store"
 import type { SiteDraft } from "@/features/sites/types"
 import { useWeatherStore, type WeatherConfig } from "@/features/weather/weather-store"
 import type { ManualLocation } from "@/features/weather/types"
+import { isHexColor } from "@/lib/color"
 import { CORNERS, type Corner } from "@/lib/corner"
 
 import {
@@ -196,10 +197,20 @@ function asNumber(value: unknown, fallback: number, min: number, max: number): n
   return Math.min(max, Math.max(min, value))
 }
 
+/**
+ * A colour the app itself could have produced. Every one of these is
+ * interpolated into CSS downstream, so the file gets the same hex-only
+ * vocabulary the colour inputs have.
+ */
+function asColor(value: unknown): string | undefined {
+  const color = asString(value)
+  return color && isHexColor(color) ? color : undefined
+}
+
 function parseBloom(raw: unknown): GradientBloom | null {
   if (!isRecord(raw)) return null
 
-  const color = asString(raw.color)
+  const color = asColor(raw.color)
   if (!color) return null
 
   return { color, x: asNumber(raw.x, 50, 0, 100), y: asNumber(raw.y, 50, 0, 100) }
@@ -210,7 +221,7 @@ function parseGradient(raw: unknown): GradientSpec | null {
 
   const id = asString(raw.id)
   const label = asString(raw.label)
-  const base = asString(raw.base)
+  const base = asColor(raw.base)
   if (!id || !label || !base) return null
 
   return {
@@ -239,7 +250,7 @@ async function parseBackgroundValue(raw: unknown): Promise<Background | undefine
   if (raw.kind === "none") return { kind: "none" }
 
   if (raw.kind === "color") {
-    const color = asString(raw.color)
+    const color = asColor(raw.color)
     return color ? { kind: "color", color } : undefined
   }
 

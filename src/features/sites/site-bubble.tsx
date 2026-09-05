@@ -1,6 +1,4 @@
-import { useState } from "react"
-import { useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
+import { useState, type CSSProperties } from "react"
 import { GripHorizontal, Pencil } from "lucide-react"
 
 import { hostnameOf } from "@/lib/url"
@@ -9,12 +7,27 @@ import { cn } from "@/lib/utils"
 import type { Site } from "./types"
 import { useSiteIconUrl } from "./use-site-icon"
 
+/**
+ * Everything dnd-kit needs wired into a bubble, handed down rather than taken
+ * from a hook here: the library is loaded after the first paint (see
+ * `sortable-site-list.tsx`), and a bubble has to render fully before it
+ * arrives. Absent means "not draggable yet".
+ */
+export type SiteDragBinding = {
+  setNodeRef: (node: HTMLElement | null) => void
+  style: CSSProperties
+  /** `attributes` and `listeners`, spread onto the grip. */
+  handleProps: Record<string, unknown>
+  isDragging: boolean
+}
+
 type SiteBubbleProps = {
   site: Site
   onEdit: (site: Site) => void
+  drag?: SiteDragBinding
 }
 
-export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
+export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
   const iconSrc = useSiteIconUrl(site.icon, site.url)
   const [faviconFailed, setFaviconFailed] = useState(false)
 
@@ -28,20 +41,16 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
     setFaviconFailed(false)
   }
 
-  // dnd-kit owns the live reorder preview (transform/transition) and the
-  // drop math; this component only wires a handle to it, it doesn't
-  // implement any reordering itself.
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: site.id,
-  })
-
   return (
+    // dnd-kit owns the live reorder preview (transform/transition) and the
+    // drop math; this component only wires a handle to it, it doesn't
+    // implement any reordering itself.
     <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      ref={drag?.setNodeRef}
+      style={drag?.style}
       className={cn(
         "group grid w-20 justify-items-center gap-0.5 rounded-2xl",
-        isDragging && "z-10 opacity-40"
+        drag?.isDragging && "z-10 opacity-40"
       )}
     >
       <div className="relative">
@@ -70,6 +79,9 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
                 width={38}
                 height={38}
                 loading="lazy"
+                // The favicon provider gets the hostname it needs and nothing
+                // else — not the extension's own address.
+                referrerPolicy="no-referrer"
                 draggable={false}
                 onError={() => setFaviconFailed(true)}
                 className="size-[38px] rounded"
@@ -96,10 +108,14 @@ export function SiteBubble({ site, onEdit }: SiteBubbleProps) {
           neighbouring bubbles around. */}
       <button
         type="button"
-        {...attributes}
-        {...listeners}
+        {...drag?.handleProps}
         aria-label={`Reorder ${site.title}`}
-        className="grid size-3.5 touch-none cursor-grab place-items-center rounded text-muted-foreground/70 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing group-hover:opacity-100"
+        className={cn(
+          "grid size-3.5 touch-none cursor-grab place-items-center rounded text-muted-foreground/70 opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 active:cursor-grabbing group-hover:opacity-100",
+          // Hidden rather than dropped in the moment before dnd-kit lands, so
+          // the reserved space stays and nothing shifts when it arrives.
+          !drag && "invisible"
+        )}
       >
         <GripHorizontal className="size-3.5" />
       </button>

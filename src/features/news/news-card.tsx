@@ -1,9 +1,9 @@
-import { useState } from "react"
+import { memo, useState } from "react"
 import { Eye, ImageOff } from "lucide-react"
 
 import { Card } from "@/components/ui/card"
 import { relativeTime } from "@/lib/relative-time"
-import { faviconUrl } from "@/lib/url"
+import { faviconUrl, safeImageUrl } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
 import { useNewsSeenStore } from "./news-seen-store"
@@ -52,10 +52,21 @@ function ImagePlaceholder({ source }: { source: string }) {
  *
  * The surface is translucent rather than solid, so the wallpaper still reads
  * through it.
+ *
+ * Memoised, and handed the article back through `onOpen` rather than closing
+ * over it: "All" can put sixty of these in the grid, and opening one of them
+ * changes only the feed's own state — no reason for the other fifty-nine to
+ * re-render behind the dialog.
  */
-export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: () => void }) {
+export const NewsCard = memo(function NewsCard({
+  article,
+  onOpen,
+}: {
+  article: NewsArticle
+  onOpen: (article: NewsArticle) => void
+}) {
   const [imageFailed, setImageFailed] = useState(false)
-  const image = imageFailed ? undefined : article.imageUrl
+  const image = imageFailed ? undefined : safeImageUrl(article.imageUrl)
 
   // A story already opened steps back the way a visited link does: the surface
   // and its picture fade, the headline drops to the muted colour, and an eye
@@ -65,7 +76,7 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => onOpen(article)}
       className="group h-full w-full rounded-xl text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       <Card
@@ -89,6 +100,9 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
                 src={image}
                 alt=""
                 loading="lazy"
+                // Publishers' CDNs have no business learning the extension's
+                // own address, which is what a default referrer would send.
+                referrerPolicy="no-referrer"
                 onError={() => setImageFailed(true)}
                 className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
@@ -104,6 +118,7 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
               src={faviconUrl(article.url, 32)}
               alt=""
               loading="lazy"
+              referrerPolicy="no-referrer"
               className={cn("size-3.5 shrink-0 rounded-[3px]", seen && "opacity-55 grayscale")}
             />
             <span className="truncate">{article.source}</span>
@@ -134,4 +149,4 @@ export function NewsCard({ article, onOpen }: { article: NewsArticle; onOpen: ()
       </Card>
     </button>
   )
-}
+})

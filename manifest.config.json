@@ -1,11 +1,26 @@
 {
   "manifest_version": 3,
   "name": "Hi.",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Your favorite sites in place of the new tab page.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png",
+    "512": "icons/icon-512.png"
+  },
   "permissions": ["favicon"],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
+  },
   "chrome_url_overrides": {
     "newtab": "index.html"
+  },
+  "chrome_settings_overrides": {
+    "homepage": "index.html",
+    "startup_pages": ["index.html"]
   },
   "browser_specific_settings": {
     "gecko": {

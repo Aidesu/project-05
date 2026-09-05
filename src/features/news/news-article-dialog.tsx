@@ -10,21 +10,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { hostnameOf } from "@/lib/url"
+import { hostnameOf, safeImageUrl } from "@/lib/url"
 import { relativeTime } from "@/lib/relative-time"
 
 import type { NewsArticle } from "./types"
 
-/** Remote images 404 often enough that a broken frame would be the norm. */
-function ArticleImage({ src, alt }: { src: string; alt: string }) {
+/**
+ * Remote images 404 often enough that a broken frame would be the norm, and a
+ * source that isn't a plain https address is never rendered at all.
+ */
+function ArticleImage({ src, alt }: { src: string | undefined; alt: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed) return null
+
+  const safe = safeImageUrl(src)
+  if (failed || !safe) return null
 
   return (
     <img
-      src={src}
+      src={safe}
       alt={alt}
       loading="lazy"
+      referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className="max-h-56 w-full rounded-md object-cover"
     />
@@ -56,7 +62,7 @@ export function NewsArticleDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {article.imageUrl && <ArticleImage src={article.imageUrl} alt="" />}
+          <ArticleImage src={article.imageUrl} alt="" />
 
           {article.summary && (
             <p className="text-sm leading-relaxed text-muted-foreground">{article.summary}</p>
@@ -80,14 +86,14 @@ export function NewsArticleDialog({
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
               {article.secondaryLink && (
                 <Button variant="secondary" size="sm" asChild>
-                  <a href={article.secondaryLink.url} target="_blank" rel="noreferrer">
+                  <a href={article.secondaryLink.url} target="_blank" rel="noreferrer noopener">
                     <ExternalLink />
                     {article.secondaryLink.label}
                   </a>
                 </Button>
               )}
               <Button size="sm" asChild>
-                <a href={article.url} target="_blank" rel="noreferrer">
+                <a href={article.url} target="_blank" rel="noreferrer noopener">
                   Read the article
                   <ArrowUpRight />
                 </a>

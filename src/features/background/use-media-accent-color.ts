@@ -14,23 +14,25 @@ import { useMediaSrc } from "./use-media-src"
 export function useMediaAccentColor(): string | null {
   const background = useBackgroundStore((state) => state.background)
   const src = useMediaSrc(background)
-  const [color, setColor] = useState<string | null>(null)
+  const [sampled, setSampled] = useState<{ src: string; color: string | null } | null>(null)
+
+  /** The picture worth sampling, or null for every other kind of background. */
+  const source = background.kind === "image" ? src : null
 
   useEffect(() => {
-    if (background.kind !== "image" || !src) {
-      setColor(null)
-      return
-    }
+    if (!source) return
 
     let cancelled = false
-    averageColorFromUrl(src).then((result) => {
-      if (!cancelled) setColor(result)
+    averageColorFromUrl(source).then((color) => {
+      if (!cancelled) setSampled({ src: source, color })
     })
 
     return () => {
       cancelled = true
     }
-  }, [background.kind, src])
+  }, [source])
 
-  return color
+  // Derived rather than cleared in the effect, the same way `use-media-src`
+  // does it: the previous picture's colour is never handed out for this one.
+  return source && sampled?.src === source ? sampled.color : null
 }

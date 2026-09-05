@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import { isSafeHttpUrl } from "@/lib/url"
+
 import { readCachedNews, writeCachedNews } from "./news-cache"
 import { newsCategory, NewsApiError } from "./news-sources"
 import type { NewsArticle, NewsCategoryId } from "./types"
@@ -14,15 +16,27 @@ type NewsResult =
  * a couple of hundred cards in the grid for no one to ever scroll to. */
 const MERGED_LIMIT = 60
 
-/** Newest first, one card per story however many categories carried it. */
+/**
+ * Newest first, one card per story however many categories carried it.
+ *
+ * Every link here is a string a remote API handed us, and it ends up in an
+ * `href` the user clicks, so this is where an address that isn't plain
+ * http(s) is dropped — the one gate both the fresh and the cached path pass
+ * through, cache entries written by an older build included.
+ */
 function mergeArticles(lists: NewsArticle[][]): NewsArticle[] {
   const seen = new Set<string>()
   const merged: NewsArticle[] = []
 
   for (const article of lists.flat()) {
-    if (seen.has(article.url)) continue
+    if (seen.has(article.url) || !isSafeHttpUrl(article.url)) continue
     seen.add(article.url)
-    merged.push(article)
+
+    const secondaryLink =
+      article.secondaryLink && isSafeHttpUrl(article.secondaryLink.url)
+        ? article.secondaryLink
+        : undefined
+    merged.push(secondaryLink === article.secondaryLink ? article : { ...article, secondaryLink })
   }
 
   return merged.sort((a, b) => b.publishedAt - a.publishedAt).slice(0, MERGED_LIMIT)

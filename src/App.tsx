@@ -1,5 +1,6 @@
+import { lazy, Suspense } from "react"
+
 import { Header } from "@/components/layout/header"
-import { Toaster } from "@/components/ui/sonner"
 import { BackgroundLayer } from "@/features/background/background-layer"
 import { useBackgroundContrast } from "@/features/background/use-background-contrast"
 import { ChecklistCard } from "@/features/checklist/checklist-card"
@@ -7,6 +8,16 @@ import { Greeting } from "@/features/greeting/greeting"
 import { NewsFeed } from "@/features/news/news-feed"
 import { SiteBoard } from "@/features/sites/site-board"
 import { WeatherCard } from "@/features/weather/weather-card"
+
+/**
+ * Nothing on the page can raise a toast until one of the lazily-loaded panels
+ * is open, so the toaster loads alongside them rather than ahead of the first
+ * paint. Rendered unconditionally: the fetch starts at mount and lands long
+ * before any interaction could produce a toast.
+ */
+const Toaster = lazy(() =>
+  import("@/components/ui/sonner").then((module) => ({ default: module.Toaster }))
+)
 
 export default function App() {
   const contrast = useBackgroundContrast()
@@ -37,7 +48,9 @@ export default function App() {
           <NewsFeed />
         </main>
       </div>
-      <Toaster />
+      <Suspense fallback={null}>
+        <Toaster />
+      </Suspense>
     </div>
   )
 }

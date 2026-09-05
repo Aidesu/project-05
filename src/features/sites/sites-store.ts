@@ -1,4 +1,3 @@
-import { arrayMove } from "@dnd-kit/sortable"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 
@@ -25,6 +24,17 @@ type SitesState = {
    * Board order (the array order) is the single source of truth for display
    * orderthe live preview while dragging is dnd-kit's, not stored here. */
   reorderSite: (activeId: string, overId: string) => void
+}
+
+/**
+ * Moves one item, leaving the rest in order. Four lines rather than dnd-kit's
+ * `arrayMove`, so the store — which every part of the page reads — doesn't
+ * drag the drag-and-drop library in behind it.
+ */
+function arrayMove<T>(items: T[], from: number, to: number): T[] {
+  const next = items.slice()
+  next.splice(to, 0, ...next.splice(from, 1))
+  return next
 }
 
 /** Trimmed, lower-cased, order-preserving, no duplicates. */
