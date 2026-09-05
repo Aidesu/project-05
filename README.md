@@ -30,6 +30,7 @@ Works in **Firefox**, **Chrome** and **Edge**.
 ## 📑 Table of Contents
 
 - [Overview](#-overview)
+- [Screenshots](#-screenshots)
 - [Features](#-features)
 - [Install](#-install)
 - [Privacy](#-privacy)
@@ -46,6 +47,24 @@ The default new tab page is either blank or full of things somebody else chose f
 At the centre is a board of your sites add a link and it picks up the site's own icon, give it tags, drag the bubbles into the order you like. Around it you turn on only what you want: a clock and a greeting, the current weather, a small checklist, a news feed built from the sources you pick. Behind it all sits a wallpaper: one of the built-in gradients, one you mix yourself, or a photo or video of your own.
 
 Everything stays on your machine. There is no account to create and nothing to sign in to open a new tab and it is already there, even offline. When you move to another browser or another computer, you export your setup to a single file and import it on the other side.
+
+---
+
+## 📸 Screenshots
+
+<div align="center">
+
+<img src="screenshots/new-tab.png" alt="A new tab: clock, greeting, tagged site bubbles, the news feed, the checklist and the weather card" width="900">
+
+*Your sites, your news, the weather and the checklist, on your own wallpaper.*
+
+<br>
+
+<img src="screenshots/settings.png" alt="The settings panel open over a custom gradient wallpaper, showing the weather, checklist and news sections with custom feed desks" width="900">
+
+*Settings: turn modules on or off, mix a wallpaper, build news desks from any RSS feed.*
+
+</div>
 
 ---
 

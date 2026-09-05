@@ -56,8 +56,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
       <div className="relative">
         <a
           href={site.url}
-          target="_blank"
-          rel="noreferrer noopener"
+          rel="noreferrer"
           draggable={false}
           title={hostnameOf(site.url)}
           className={cn(

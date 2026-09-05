@@ -106,14 +106,14 @@ export function NewsArticleDialog({
               <SaveArticleButton article={article} />
               {article.secondaryLink && (
                 <Button variant="secondary" size="sm" asChild>
-                  <a href={article.secondaryLink.url} target="_blank" rel="noreferrer noopener">
+                  <a href={article.secondaryLink.url} rel="noreferrer">
                     <ExternalLink />
                     {article.secondaryLink.label}
                   </a>
                 </Button>
               )}
               <Button size="sm" asChild>
-                <a href={article.url} target="_blank" rel="noreferrer noopener">
+                <a href={article.url} rel="noreferrer">
                   Read the article
                   <ArrowUpRight />
                 </a>
