@@ -10,6 +10,13 @@ export type NewsArticle = {
   publishedAt: number
   /** Only the sources that expose one: headline-only feeds leave it out. */
   summary?: string
+  /**
+   * The story itself, as far as the feed carries it, with a blank line between
+   * paragraphs. Set only where it says more than `summary` already does: two
+   * feeds in three publish a standfirst and nothing else, and there the
+   * standfirst is the whole of what there is.
+   */
+  content?: string
   imageUrl?: string
   author?: string
   /** Short source-specific facts ("2068 points", "6 min read"), shown in the dialog. */

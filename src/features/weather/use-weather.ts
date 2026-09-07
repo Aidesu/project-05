@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { fetchCurrentWeather, reverseGeocode, WeatherApiError } from "./weather-api"
 import { useWeatherStore } from "./weather-store"
-import type { WeatherSnapshot } from "./types"
+import type { WeatherDisplay, WeatherSnapshot } from "./types"
 
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000
 
@@ -31,8 +31,15 @@ function locateBrowser(): Promise<GeolocationPosition> {
   })
 }
 
-export function useWeather() {
+/**
+ * The current conditions for whichever surface asks. Both the floating card
+ * and the header line call this, and the surface they name is checked against
+ * the one that is switched on: only the surface actually on screen loads, so
+ * the two of them never fetch the same reading twice.
+ */
+export function useWeather(surface: WeatherDisplay) {
   const enabled = useWeatherStore((state) => state.enabled)
+  const display = useWeatherStore((state) => state.display)
   const locationMode = useWeatherStore((state) => state.locationMode)
   const manualLocation = useWeatherStore((state) => state.manualLocation)
 
@@ -92,15 +99,17 @@ export function useWeather() {
     }
   }, [locationMode, manualLocation])
 
+  const active = enabled && display === surface
+
   useEffect(() => {
-    // Nothing to reset when disabled: the card itself doesn't render, and
-    // `load()` overwrites any stale result the moment it's enabled again.
-    if (!enabled) return
+    // Nothing to reset when inactive: the surface itself doesn't render, and
+    // `load()` overwrites any stale result the moment it comes back.
+    if (!active) return
 
     void load()
     const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS)
     return () => clearInterval(interval)
-  }, [enabled, load])
+  }, [active, load])
 
   return { ...result, refresh: load }
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hi.",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Your favorite sites in place of the new tab page.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -12,6 +12,7 @@
     "512": "icons/icon-512.png"
   },
   "permissions": ["favicon"],
+  "optional_permissions": ["tabs", "scripting"],
   "content_security_policy": {
     "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self'; connect-src 'self' https:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"
   },

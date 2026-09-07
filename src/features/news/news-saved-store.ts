@@ -7,7 +7,12 @@ import type { NewsArticle } from "./types"
  * Stories kept before the oldest are dropped. Each carries a full copy of the
  * article rather than a reference, which is the whole point: a feed moves on
  * within hours, and a saved story has to survive the moment its own newsroom
- * stops listing it.
+ * stops listing it. The article's own text travels with it, so a story kept
+ * from a full-text feed still reads in full long after the feed forgot it.
+ *
+ * That copy is about 1.9 KB, so this list is a few hundred KB at its fullest
+ * and a fifth of a megabyte in ordinary use - the same `localStorage` budget
+ * `news-feeds.ts` works to.
  */
 const LIMIT = 200
 

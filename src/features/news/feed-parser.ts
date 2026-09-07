@@ -14,6 +14,20 @@ const MEDIA_NS = "http://search.yahoo.com/mrss/"
 const MAX_SUMMARY = 400
 
 /**
+ * How much of the story itself is kept, when a feed carries it.
+ *
+ * Ten of the catalogue's feeds publish a whole article rather than an excerpt,
+ * and the median one is about 3,300 characters, so this holds all of nearly
+ * every one of them. It exists for the other end: the GitHub Blog files posts
+ * of 200,000 characters, and sixty of those would be four times what
+ * `localStorage` holds in total (`news-feeds.ts` does that arithmetic).
+ */
+const MAX_CONTENT = 6000
+
+/** Block elements worth a paragraph of their own, innermost one winning. */
+const BLOCKS = "p, li, blockquote, h2, h3, h4, h5, h6, pre"
+
+/**
  * Turns escaped markup into the text it stands for: `&amp;` back to `&`, and
  * any tags around it dropped. Feeds nest HTML inside XML, so a title arrives
  * escaped once and an excerpt sometimes twice.
@@ -22,9 +36,9 @@ export function decodeEntities(text: string): string {
   return new DOMParser().parseFromString(text, "text/html").documentElement.textContent ?? text
 }
 
-/** Rendered HTML (a title, an excerpt) reduced to the sentence underneath. */
-export function plainText(html: string): string {
-  return decodeEntities(html)
+/** The tidying both of the readers below share, once the markup is gone. */
+function tidy(text: string): string {
+  return text
     .replace(/\s+/g, " ")
     // A trimmed excerpt trails off into the theme's own marker. Each pattern
     // needs the marker at the very end, and the "read more" one needs the
@@ -36,6 +50,36 @@ export function plainText(html: string): string {
     // Where the marker followed a finished sentence, the ellipsis is noise.
     .replace(/([.!?])…$/, "$1")
     .trim()
+}
+
+/** Rendered HTML (a title, an excerpt) reduced to the sentence underneath. */
+export function plainText(html: string): string {
+  return tidy(decodeEntities(html))
+}
+
+/**
+ * The same, for a whole article rather than a sentence: paragraph breaks are
+ * what separate a story from a wall of text, so the markup is walked for its
+ * blocks instead of being flattened.
+ *
+ * Only blocks that hold no block of their own are read, so a `<p>` inside a
+ * `<blockquote>` is counted once rather than twice. A body with no blocks at
+ * all - plenty of feeds write one long run of text with `<br>` in it - falls
+ * back to reading it flat.
+ */
+function articleText(html: string): string {
+  const document = new DOMParser().parseFromString(html, "text/html")
+  // Otherwise a feed that inlines a tracking script publishes it as prose.
+  for (const element of document.querySelectorAll("script, style, noscript")) element.remove()
+
+  const found: string[] = []
+  for (const block of document.body.querySelectorAll(BLOCKS)) {
+    if (block.querySelector(BLOCKS)) continue
+    const text = tidy(block.textContent ?? "")
+    if (text) found.push(text)
+  }
+
+  return found.length > 0 ? found.join("\n\n") : tidy(document.body.textContent ?? "")
 }
 
 /** Cut to length on a word boundary, so a clamped standfirst still reads. */
@@ -99,6 +143,8 @@ function articleLink(item: Element): string | undefined {
 const IMAGE_BODIES = ["encoded", "content", "description", "summary"]
 /** Bodies that may carry the standfirst, most deliberate first. */
 const SUMMARY_BODIES = ["summary", "description", "encoded", "content"]
+/** The same four read for the story itself, where the richest wins instead. */
+const CONTENT_BODIES = ["encoded", "content", "description", "summary"]
 
 function bodies(item: Element, order: string[]): string[] {
   const found: string[] = []
@@ -260,13 +306,30 @@ export function parseFeed(xml: string, feed: Feed): NewsArticle[] {
       .map((body) => plainText(body))
       .find((text) => text.length > 0)
 
+    // The longest of whatever the item carries, not the first: a feed that
+    // fills both `description` and `content:encoded` puts the excerpt in one
+    // and the article in the other, and which is which varies by publisher.
+    const content = bodies(item, CONTENT_BODIES)
+      .map((body) => articleText(body))
+      .reduce((longest, text) => (text.length > longest.length ? text : longest), "")
+
+    // Against the standfirst as it will be *stored*, not as it arrived. A feed
+    // whose description runs past `MAX_SUMMARY` is exactly the case this is
+    // for, and comparing with the full-length one would rule it out.
+    const standfirst = summary ? clamp(summary, MAX_SUMMARY) : undefined
+
     articles.push({
       id: `rss-${host}-${link}`,
       title,
       url: link,
       source: feed.source,
       publishedAt,
-      summary: summary ? clamp(summary, MAX_SUMMARY) : undefined,
+      summary: standfirst,
+      // Only where there is more of the story than the standfirst gave: on the
+      // feeds that publish an excerpt and stop, the two would be one paragraph
+      // stored twice.
+      content:
+        content.length > (standfirst?.length ?? 0) ? clamp(content, MAX_CONTENT) : undefined,
       imageUrl: articleImage(item, link),
       author: firstText(item, "creator") ?? undefined,
     })

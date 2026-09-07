@@ -7,6 +7,7 @@ import { faviconUrl, safeImageUrl } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
 import { selectIsSaved, useNewsSavedStore } from "./news-saved-store"
+import { thumbnail } from "./thumbnail"
 import { useNewsSeenStore } from "./news-seen-store"
 import type { NewsArticle } from "./types"
 
@@ -106,8 +107,20 @@ export const NewsCard = memo(function NewsCard({
   article: NewsArticle
   onOpen: (article: NewsArticle) => void
 }) {
-  const [imageFailed, setImageFailed] = useState(false)
-  const image = imageFailed ? undefined : safeImageUrl(article.imageUrl)
+  const source = safeImageUrl(article.imageUrl)
+
+  /**
+   * Which address the card is on. It asks the publisher's CDN for a copy the
+   * size of the frame first (`thumbnail.ts`); a CDN that refuses one still has
+   * the picture itself, and only when that fails too does the placeholder take
+   * over. So a rewritten address can never cost the card its picture.
+   */
+  const [step, setStep] = useState<"resized" | "original" | "failed">("resized")
+
+  const picture =
+    !source || step === "failed" ? null : step === "original" ? { src: source } : thumbnail(source)
+  /** Nothing to fall back to when no rule matched the address in the first place. */
+  const canFallBack = picture !== null && picture.src !== source
 
   // A story already opened steps back the way a visited link does: the surface
   // and its picture fade, the headline drops to the muted colour, and an eye
@@ -136,16 +149,22 @@ export const NewsCard = memo(function NewsCard({
               3:2 across the whole card range, and the words still fit: the
               headline is all that's left down there. */}
           <div className={cn("h-3/5 shrink-0", seen && "opacity-55 grayscale-[40%]")}>
-            {image ? (
+            {picture ? (
               <div className="h-full overflow-hidden bg-muted">
                 <img
-                  src={image}
+                  src={picture.src}
+                  srcSet={picture.srcSet}
                   alt=""
                   loading="lazy"
+                  // Sixty of these decode on a wide window, and none of them is
+                  // worth holding the page up for.
+                  decoding="async"
                   // Publishers' CDNs have no business learning the extension's
                   // own address, which is what a default referrer would send.
                   referrerPolicy="no-referrer"
-                  onError={() => setImageFailed(true)}
+                  onError={() =>
+                    setStep(step === "resized" && canFallBack ? "original" : "failed")
+                  }
                   className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 />
               </div>

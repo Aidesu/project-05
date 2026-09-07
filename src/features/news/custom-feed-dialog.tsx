@@ -21,7 +21,12 @@ import { NewsApiError } from "./errors"
 import { discoverFeed, FeedAccessError, originPatternOf, previewOf } from "./feed-discovery"
 import type { FeedCandidate } from "./feed-discovery"
 import { useHostAccessStore } from "./host-access"
+import { thumbnail } from "./thumbnail"
 import type { CustomCategoryId } from "./types"
+
+/** The preview list's squares are 36px, so this is what its pictures are cut
+ * to: doubled once for a dense screen by `thumbnail`, and no further. */
+const PREVIEW_WIDTH = 96
 
 type Stage =
   | { step: "typing" }
@@ -234,15 +239,20 @@ function FeedFinder({
             </p>
             <ul className="grid gap-2 rounded-lg border border-border/60 p-2">
               {previewOf(stage.candidate).map((article) => {
-                const image = safeImageUrl(article.imageUrl)
+                // A 36px square: the smallest copy the publisher's CDN will
+                // cut, not the front-page picture scaled down in the browser.
+                const source = safeImageUrl(article.imageUrl)
+                const image = source ? thumbnail(source, PREVIEW_WIDTH) : undefined
                 return (
                   <li key={article.id} className="flex items-center gap-2">
                     <div className="size-9 shrink-0 overflow-hidden rounded bg-muted">
                       {image && (
                         <img
-                          src={image}
+                          src={image.src}
+                          srcSet={image.srcSet}
                           alt=""
                           loading="lazy"
+                          decoding="async"
                           referrerPolicy="no-referrer"
                           className="size-full object-cover"
                         />

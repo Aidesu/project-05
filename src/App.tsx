@@ -6,6 +6,7 @@ import { useBackgroundContrast } from "@/features/background/use-background-cont
 import { ChecklistCard } from "@/features/checklist/checklist-card"
 import { useGlassRoot } from "@/features/glass/use-glass-root"
 import { Greeting } from "@/features/greeting/greeting"
+import { MediaPlayerCard } from "@/features/media/media-player-card"
 import { NewsFeed } from "@/features/news/news-feed"
 import { SiteBoard } from "@/features/sites/site-board"
 import { WeatherCard } from "@/features/weather/weather-card"
@@ -35,6 +36,7 @@ export default function App() {
       <div className="flex h-full flex-col" data-on-bg={contrast ?? undefined}>
         <Header />
         <WeatherCard />
+        <MediaPlayerCard />
         <ChecklistCard />
         {/* Greeting and board take the height they need; the last row (the
             feed) takes whatever is left. */}

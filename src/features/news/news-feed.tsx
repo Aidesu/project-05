@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Bookmark, Eye, RefreshCw, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { useReservedSpace } from "@/features/floating/use-reserved-space"
 import { isSafeHttpUrl } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
@@ -25,19 +26,33 @@ const WHEEL_EASING = 0.2
 
 /**
  * Columns are laid by width, not by breakpoint: as many ~18rem cards as fit,
- * which is two on a laptop, four across a 1400px column and one on a phone or
- * a heavily zoomed window: no step changes on the way.
+ * which is two on a laptop and four across a 1400px column — no step changes
+ * on the way.
  *
- * The `min()` is what keeps that true below 17.5rem of usable width (a narrow
- * side window, a phone, a page zoomed to 200%): without it the single column
- * keeps its 17.5rem floor and the grid pushes past the right edge instead of
- * shrinking with the page.
+ * Below three columns' worth of room that stops working. Auto-filling a narrow
+ * window (a side-by-side split, a phone, a page zoomed to 200%) gives one
+ * enormous card per row and turns the feed into a list two headlines long, so
+ * under 56rem — three columns' worth — the count is pinned at three instead and
+ * the cards take whatever width is going. The floor goes with it: a `min()`
+ * that never falls below 17.5rem would push a three-column grid straight off
+ * the right edge.
+ *
+ * Both are set as custom properties rather than as two competing
+ * `grid-template-columns` utilities, so which one wins is decided by the media
+ * query and not by the order Tailwind happened to emit them in.
  *
  * The gap follows the viewport's height for the same reason the card does: on
  * a short window every pixel between rows is one the feed doesn't get.
+ *
+ * Every class here is written out in full: Tailwind reads this file as text,
+ * and a breakpoint pulled in from a constant is a class it never sees.
  */
-const NEWS_GRID =
-  "grid auto-rows-min grid-cols-[repeat(auto-fill,minmax(min(17.5rem,100%),1fr))] gap-[clamp(0.5rem,1.5svh,0.75rem)]"
+const NEWS_GRID = [
+  "grid auto-rows-min gap-[clamp(0.5rem,1.5svh,0.75rem)]",
+  "grid-cols-[repeat(var(--news-columns),minmax(var(--news-column-min),1fr))]",
+  "[--news-columns:auto-fill] [--news-column-min:min(17.5rem,100%)]",
+  "max-[56rem]:[--news-columns:3] max-[56rem]:[--news-column-min:0px]",
+].join(" ")
 
 /**
  * Cards mounted before anything is scrolled, and how many more join them each
@@ -231,6 +246,18 @@ export function NewsFeed() {
   const [dialogLoaded, setDialogLoaded] = useState(false)
   const listRef = useRef<HTMLUListElement>(null)
 
+  // The corner cards float over the page rather than sitting in it, so on a
+  // window small enough that the feed runs out to the edges the grid would lay
+  // headlines straight underneath them. This is the room it hands back, and it
+  // is nothing at all on a wide window: there the cards sit out in the margins
+  // beside the feed and never reach it.
+  //
+  // Applied as the section's own padding, which is what keeps the measurement
+  // honest: the section is a `1fr` grid row, so its border box is settled by
+  // `App`'s layout and padding inside it cannot move the edges the padding was
+  // worked out from.
+  const { ref: feedRef, insets } = useReservedSpace<HTMLElement>()
+
   // Stable, so `NewsCard`'s memoisation actually holds across a re-render.
   const openArticle = useCallback(
     (article: NewsArticle) => {
@@ -351,7 +378,16 @@ export function NewsFeed() {
   if (!enabled) return null
 
   return (
-    <section className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-col gap-2">
+    <section
+      ref={feedRef}
+      style={{
+        paddingTop: insets.top,
+        paddingRight: insets.right,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+      }}
+      className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-col gap-2"
+    >
       {(categories.length > 1 || savedTab) && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
           {/* Sits ahead of "All" and only once something has been kept, so the

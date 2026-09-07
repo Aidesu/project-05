@@ -10,19 +10,26 @@ import { Section } from "@/features/settings/section"
 
 import { geocodeCity } from "./weather-api"
 import { useWeatherStore } from "./weather-store"
-import type { LocationMode } from "./types"
+import type { LocationMode, WeatherDisplay } from "./types"
 
 const MODES: { value: LocationMode; label: string }[] = [
   { value: "geo", label: "My location" },
   { value: "manual", label: "A city" },
 ]
 
+const DISPLAYS: { value: WeatherDisplay; label: string }[] = [
+  { value: "card", label: "Floating card" },
+  { value: "header", label: "In the header" },
+]
+
 export function WeatherSettings() {
   const enabled = useWeatherStore((state) => state.enabled)
+  const display = useWeatherStore((state) => state.display)
   const position = useWeatherStore((state) => state.position)
   const locationMode = useWeatherStore((state) => state.locationMode)
   const manualLocation = useWeatherStore((state) => state.manualLocation)
   const setEnabled = useWeatherStore((state) => state.setEnabled)
+  const setDisplay = useWeatherStore((state) => state.setDisplay)
   const setPosition = useWeatherStore((state) => state.setPosition)
   const setLocationMode = useWeatherStore((state) => state.setLocationMode)
   const setManualLocation = useWeatherStore((state) => state.setManualLocation)
@@ -52,18 +59,40 @@ export function WeatherSettings() {
   }
 
   return (
-    <Section title="Weather" hint="A floating card with the current conditions.">
+    <Section
+      title="Weather"
+      hint="The current conditions, either as a floating card or as one line beside the settings gear."
+    >
       <div className="flex items-center justify-between">
-        <span className="text-sm">Show the weather card</span>
-        <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Show the weather card" />
+        <span className="text-sm">Show the weather</span>
+        <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Show the weather" />
       </div>
 
       {enabled && (
         <>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Position</span>
-            <CornerPositionPicker value={position} onChange={setPosition} />
+          <div className="grid grid-cols-2 gap-2">
+            {DISPLAYS.map(({ value, label }) => (
+              <Button
+                key={value}
+                variant={display === value ? "default" : "secondary"}
+                size="sm"
+                onClick={() => setDisplay(value)}
+                aria-pressed={display === value}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
+
+          {/* The header line has one spot and it is not a corner, so the
+              picker belongs to the card alone. The corner it is set to is
+              kept either way, and is waiting where it was left. */}
+          {display === "card" && (
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Position</span>
+              <CornerPositionPicker value={position} onChange={setPosition} />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2">
             {MODES.map(({ value, label }) => (
@@ -100,7 +129,9 @@ export function WeatherSettings() {
           </div>
 
           {locationMode === "manual" && !manualLocation && (
-            <p className="text-xs text-muted-foreground">Search for a city to enable the card.</p>
+            <p className="text-xs text-muted-foreground">
+              Search for a city to see the weather.
+            </p>
           )}
           {locationMode === "geo" && manualLocation && (
             <p className="text-xs text-muted-foreground">

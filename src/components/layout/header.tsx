@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from "react"
 import { Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { WeatherCompact } from "@/features/weather/weather-compact"
 
 import { Clock } from "./clock"
 
@@ -40,17 +41,25 @@ export function Header() {
           <Clock />
         </div>
 
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="glass-control text-foreground"
-          onClick={openSettings}
-          onPointerEnter={() => setSettingsLoaded(true)}
-          onFocus={() => setSettingsLoaded(true)}
-          aria-label="Open settings"
-        >
-          <Settings />
-        </Button>
+        {/* The clock above is out of the flow, so the wordmark and this group
+            are what `justify-between` actually spaces. Both sit at the same
+            height, and the pill renders nothing at all unless the weather is
+            set to the header, so the row's height never moves. */}
+        <div className="flex items-center gap-2">
+          <WeatherCompact />
+
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="glass-control text-foreground"
+            onClick={openSettings}
+            onPointerEnter={() => setSettingsLoaded(true)}
+            onFocus={() => setSettingsLoaded(true)}
+            aria-label="Open settings"
+          >
+            <Settings />
+          </Button>
+        </div>
       </div>
 
       {settingsLoaded && (

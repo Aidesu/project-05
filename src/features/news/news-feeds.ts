@@ -6,9 +6,17 @@ import type { NewsArticle } from "./types"
 
 /**
  * How many stories a desk keeps. Enough for a long scroll, and small enough to
- * cache: an article serialises to about 780 bytes, so sixty of them across
- * every desk is roughly 0.6 MB, an eighth of what `localStorage` allows. That
- * ceiling matters because `writeCachedNews` swallows a quota error, and a
+ * cache.
+ *
+ * A story used to serialise to about 780 bytes. It is nearer 1.9 KB now that
+ * the parser keeps the article itself where a feed publishes one, up to the
+ * 6,000 characters `feed-parser.ts` caps it at: measured over a full page, the
+ * heaviest desk in the catalogue (open source, where every feed is full-text)
+ * comes to 112 KB, and a headline desk like world to 68 KB. Sixty across all
+ * fourteen desks is therefore on the order of 1 MB, a fifth of what
+ * `localStorage` allows.
+ *
+ * That ceiling matters because `writeCachedNews` swallows a quota error, and a
  * cache that silently stopped writing would mean refetching on every new tab.
  */
 export const PAGE_SIZE = 60

@@ -14,6 +14,7 @@ import { BackgroundSettings } from "@/features/background/background-settings"
 import { ChecklistSettings } from "@/features/checklist/checklist-settings"
 import { ConfigSettings } from "@/features/config/config-settings"
 import { GlassToggle } from "@/features/glass/glass-toggle"
+import { MediaSettings } from "@/features/media/media-settings"
 import { NewsSettings } from "@/features/news/news-settings"
 import { WeatherSettings } from "@/features/weather/weather-settings"
 
@@ -68,6 +69,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           <BackgroundSettings />
           <WeatherSettings />
           <ChecklistSettings />
+          <MediaSettings />
           <NewsSettings />
           <ConfigSettings />
         </div>

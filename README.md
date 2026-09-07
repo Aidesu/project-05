@@ -74,7 +74,7 @@ Everything stays on your machine. There is no account to create and nothing to s
 | ----------------------- | ----------------------------------------------------------------------------------------------- |
 | 🗂 **Your sites**       | Add a link and it finds the icon on its own, or set your own then tag, reorder and hide freely |
 | 🎨 **Your wallpaper**   | Ready-made gradients, a gradient you mix yourself, or your own image or video with fit and effects |
-| 🌤 **Weather**          | Current conditions where you are, or in any city you name no account, no API key               |
+| 🌤 **Weather**          | Current conditions where you are, or in any city you name, as a card in a corner or one line in the header. No account, no API key |
 | ✅ **Checklist**        | A few things to do, parked in whichever corner suits you                                         |
 | 📰 **News**             | Desks of headlines from a curated list of publishers, or any RSS feed you add save what you want to read later |
 | 🕐 **Clock & greeting** | The time, and a different hello on every tab                                                    |

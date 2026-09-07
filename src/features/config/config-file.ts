@@ -17,6 +17,7 @@ import {
 import { useChecklistStore, type ChecklistConfig } from "@/features/checklist/checklist-store"
 import type { ChecklistItem } from "@/features/checklist/types"
 import { useGlassStore, type GlassConfig } from "@/features/glass/glass-store"
+import { useMediaStore, type MediaConfig } from "@/features/media/media-store"
 import { useCustomFeedsStore } from "@/features/news/custom-feeds-store"
 import {
   useNewsSavedStore,
@@ -33,6 +34,7 @@ import type { CustomCategoryId, CustomDesk, NewsCategoryId } from "@/features/ne
 import { useSitesStore } from "@/features/sites/sites-store"
 import type { SiteDraft } from "@/features/sites/types"
 import { useWeatherStore, type WeatherConfig } from "@/features/weather/weather-store"
+import { WEATHER_DISPLAYS } from "@/features/weather/types"
 import type { ManualLocation } from "@/features/weather/types"
 import { isHexColor } from "@/lib/color"
 import { isSafeHttpUrl, normalizeFeedUrl, safeImageUrl } from "@/lib/url"
@@ -56,8 +58,19 @@ import {
  *
  * 3 added the glass appearance, on the same terms: an older file carries no
  * `glass` section and leaves the one on this device alone.
+ *
+ * 4 added the media player card, again on the same terms. The access it needs
+ * is not in the file and never could be: a permission belongs to the browser
+ * that granted it, so an imported card asks for its own on the other side.
+ *
+ * 5 added the weather's surface, the card or the header. A file at 4 names no
+ * surface and is read as the card, which is the only one it could have been
+ * written from.
+ *
+ * 6 carries the text of a kept story, where its feed published one. A file at
+ * 5 carries only the standfirst, which is what a story imported from it shows.
  */
-export const CONFIG_EXPORT_VERSION = 3
+export const CONFIG_EXPORT_VERSION = 6
 
 const APP = "mainboard.config"
 
@@ -81,6 +94,13 @@ const MAX_IMPORTED_SAVED = 200
  * push a novel into a card. */
 const MAX_TEXT = 500
 const MAX_FACTS = 6
+
+/**
+ * The one field a file may carry at length: a kept story's own text. The same
+ * ceiling `feed-parser.ts` puts on it when the story arrives, so a file cannot
+ * import a body longer than one the app would ever have written.
+ */
+const MAX_BODY = 6000
 
 // ------------------------------------------------------------- file shape
 
@@ -120,6 +140,7 @@ export type ConfigFile = {
   sites?: ExportedSite[]
   weather?: WeatherConfig
   checklist?: ChecklistConfig
+  media?: MediaConfig
   news?: NewsConfig
   /** Desks built by hand, carried separately: they are their own store. */
   newsDesks?: CustomDesk[]
@@ -142,6 +163,7 @@ export type ConfigImport = {
   sites?: SiteDraft[]
   weather?: WeatherConfig
   checklist?: ChecklistConfig
+  media?: MediaConfig
   news?: NewsConfig
   newsDesks?: CustomDesk[]
   newsSaved?: SavedArticle[]
@@ -182,10 +204,16 @@ export async function buildConfigExport(
   const { sites } = useSitesStore.getState()
   const { background, gradients, gradientAnimated, mediaEffects, mediaFit, mediaPosition } =
     useBackgroundStore.getState()
-  const { enabled: weatherEnabled, position: weatherPosition, locationMode, manualLocation } =
-    useWeatherStore.getState()
+  const {
+    enabled: weatherEnabled,
+    display: weatherDisplay,
+    position: weatherPosition,
+    locationMode,
+    manualLocation,
+  } = useWeatherStore.getState()
   const { enabled: checklistEnabled, position: checklistPosition, items } =
     useChecklistStore.getState()
+  const { enabled: playerEnabled, position: playerPosition } = useMediaStore.getState()
   const { enabled: glassEnabled } = useGlassStore.getState()
   const { enabled: newsEnabled, categories, activeCategory } = useNewsStore.getState()
   const { desks } = useCustomFeedsStore.getState()
@@ -211,8 +239,15 @@ export async function buildConfigExport(
         icon: await exportAsset(site.icon, report),
       }))
     ),
-    weather: { enabled: weatherEnabled, position: weatherPosition, locationMode, manualLocation },
+    weather: {
+      enabled: weatherEnabled,
+      display: weatherDisplay,
+      position: weatherPosition,
+      locationMode,
+      manualLocation,
+    },
     checklist: { enabled: checklistEnabled, position: checklistPosition, items },
+    media: { enabled: playerEnabled, position: playerPosition },
     news: { enabled: newsEnabled, categories, activeCategory },
     newsDesks: desks,
     newsSaved: savedArticles,
@@ -381,6 +416,9 @@ function parseWeather(raw: unknown): WeatherConfig | undefined {
 
   return {
     enabled: raw.enabled === true,
+    // A file written before the header line existed names no surface, and the
+    // card is the only one it could have come from.
+    display: asOneOf(raw.display, WEATHER_DISPLAYS) ?? "card",
     position: parseCorner(raw.position, "bottom-right"),
     locationMode: asOneOf(raw.locationMode, LOCATION_MODES) ?? "manual",
     manualLocation: parseManualLocation(raw.manualLocation),
@@ -401,6 +439,12 @@ function parseChecklist(raw: unknown): ChecklistConfig | undefined {
   )
 
   return { enabled: raw.enabled === true, position: parseCorner(raw.position, "top-right"), items }
+}
+
+function parseMedia(raw: unknown): MediaConfig | undefined {
+  if (!isRecord(raw)) return undefined
+
+  return { enabled: raw.enabled === true, position: parseCorner(raw.position, "bottom-left") }
 }
 
 function parseGlass(raw: unknown): GlassConfig | undefined {
@@ -455,6 +499,12 @@ function asText(value: unknown): string | undefined {
   return text || undefined
 }
 
+/** `asText` for the one field measured in paragraphs rather than in words. */
+function asBody(value: unknown): string | undefined {
+  const text = asString(value)?.trim().slice(0, MAX_BODY)
+  return text || undefined
+}
+
 /**
  * One kept story, rebuilt field by field.
  *
@@ -495,6 +545,7 @@ function parseSavedArticle(raw: unknown): SavedArticle | null {
     source: asText(raw.source) ?? new URL(url).hostname,
     publishedAt,
     summary: asText(raw.summary),
+    content: asBody(raw.content),
     imageUrl: safeImageUrl(asString(raw.imageUrl)),
     author: asText(raw.author),
     facts: facts.length > 0 ? facts : undefined,
@@ -592,6 +643,7 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
     sites: await parseSites(data.sites),
     weather: parseWeather(data.weather),
     checklist: parseChecklist(data.checklist),
+    media: parseMedia(data.media),
     news: parseNews(data.news, newsDesks.ids),
     // An explicit empty list is an answer: the file describes someone with no
     // custom desks, and importing it should leave none behind.
@@ -617,7 +669,13 @@ export function describeConfig(config: ConfigImport): string[] {
     lines.push(`${config.sites.length} site${config.sites.length === 1 ? "" : "s"}`)
   }
   if (config.weather) {
-    lines.push(config.weather.enabled ? `Weather card (${config.weather.position})` : "Weather card (off)")
+    lines.push(
+      config.weather.enabled
+        ? `Weather (${
+            config.weather.display === "header" ? "in the header" : config.weather.position
+          })`
+        : "Weather (off)"
+    )
   }
   if (config.checklist) {
     lines.push(
@@ -626,6 +684,11 @@ export function describeConfig(config: ConfigImport): string[] {
             config.checklist.items.length === 1 ? "" : "s"
           })`
         : "Checklist (off)"
+    )
+  }
+  if (config.media) {
+    lines.push(
+      config.media.enabled ? `Media player (${config.media.position})` : "Media player (off)"
     )
   }
   if (config.news) {

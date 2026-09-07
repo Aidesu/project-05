@@ -1,11 +1,10 @@
-import { useEffect, useRef } from "react"
 import { Loader2, RefreshCw } from "lucide-react"
 
+import { useFloatingCard } from "@/features/floating/use-floating-card"
 import { CORNER_CLASSES } from "@/lib/corner"
 
 import { describeWeatherCode } from "./weather-codes"
 import { useWeather } from "./use-weather"
-import { useWeatherMetricsStore } from "./weather-metrics-store"
 import { useWeatherStore } from "./weather-store"
 import type { WeatherSnapshot } from "./types"
 
@@ -36,34 +35,27 @@ function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: (
  */
 export function WeatherCard() {
   const enabled = useWeatherStore((state) => state.enabled)
+  const display = useWeatherStore((state) => state.display)
   const position = useWeatherStore((state) => state.position)
-  const weather = useWeather()
-  const setHeight = useWeatherMetricsStore((state) => state.setHeight)
+  const weather = useWeather("card")
 
-  const cardRef = useRef<HTMLDivElement>(null)
+  // The corner is only this card's while the card is the chosen surface: shown
+  // in the header instead, it gives the corner back rather than reserving room
+  // for something that is no longer there (`weather-compact.tsx`).
+  const visible = enabled && display === "card"
 
-  // Reported so the checklist card can stack clear of this one when both
-  // share a corner; re-measures itself whenever the content's height changes
-  // (loading -> ready -> error, etc).
-  useEffect(() => {
-    const el = cardRef.current
-    if (!enabled || !el) {
-      setHeight(null)
-      return
-    }
-    const observer = new ResizeObserver(([entry]) => setHeight(entry.contentRect.height))
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-      setHeight(null)
-    }
-  }, [enabled, setHeight])
+  // Its size goes to `@/features/floating`, which is what lets the other
+  // corner cards stack clear of it and the news feed leave its corner alone.
+  // Re-measured whenever the content's height changes (loading -> ready ->
+  // error, and back).
+  const { ref, style } = useFloatingCard("weather", position, visible)
 
-  if (!enabled) return null
+  if (!visible) return null
 
   return (
     <div
-      ref={cardRef}
+      ref={ref}
+      style={style}
       className={`glass-panel glass:px-2 glass:py-1.5 fixed z-20 flex justify-center ${CORNER_CLASSES[position]}`}
     >
       {(weather.status === "locating" || weather.status === "loading") && (
