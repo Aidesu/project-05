@@ -1,7 +1,7 @@
 import { Loader2, RefreshCw } from "lucide-react"
 
 import { useFloatingCard } from "@/features/floating/use-floating-card"
-import { CORNER_CLASSES } from "@/lib/corner"
+import { cn } from "@/lib/utils"
 
 import { describeWeatherCode } from "./weather-codes"
 import { useWeather } from "./use-weather"
@@ -30,8 +30,10 @@ function WeatherReady({ data, onRefresh }: { data: WeatherSnapshot; onRefresh: (
 }
 
 /**
- * Floating overlay, corner set in settings. No card chromejust icon and
- * text, independent of the board layout above it.
+ * Floating overlay, corner set in settings. No card chrome - just icon and
+ * text, independent of the board layout above it. On a compact page it gives
+ * the corner back and sits at the top of the dock instead (`card-dock.tsx`),
+ * where it keeps its natural width and is centred by the dock.
  */
 export function WeatherCard() {
   const enabled = useWeatherStore((state) => state.enabled)
@@ -48,7 +50,7 @@ export function WeatherCard() {
   // corner cards stack clear of it and the news feed leave its corner alone.
   // Re-measured whenever the content's height changes (loading -> ready ->
   // error, and back).
-  const { ref, style } = useFloatingCard("weather", position, visible)
+  const { ref, style, placement } = useFloatingCard("weather", position, visible)
 
   if (!visible) return null
 
@@ -56,7 +58,7 @@ export function WeatherCard() {
     <div
       ref={ref}
       style={style}
-      className={`glass-panel glass:px-2 glass:py-1.5 fixed z-20 flex justify-center ${CORNER_CLASSES[position]}`}
+      className={cn("glass-panel glass:px-2 glass:py-1.5 flex justify-center", placement)}
     >
       {(weather.status === "locating" || weather.status === "loading") && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">

@@ -59,6 +59,43 @@ function isMediaDataUrl(value: string): boolean {
   return MEDIA_DATA_URL.test(value)
 }
 
+/**
+ * Decodes a `data:` URL to a blob by hand, rather than handing it to `fetch`.
+ *
+ * `fetch` would be shorter and it works in a plain tab, which is what hid this
+ * for as long as it did: inside the packaged extension the page's own CSP
+ * names `connect-src 'self' https:`, and a `data:` URL is neither, so the
+ * request never leaves. Every inlined upload in an imported file came back
+ * empty there — the wallpaper as "no background", a custom site icon as none —
+ * which reads as a file that quietly forgot half of what it carried.
+ *
+ * `null` for anything malformed, which the caller treats the way it treats
+ * bytes that never arrived: drop the asset, keep the rest of the file.
+ */
+function dataUrlToBlob(dataUrl: string): Blob | null {
+  const comma = dataUrl.indexOf(",")
+  if (comma === -1) return null
+
+  // Past "data:" and up to the comma: the media type, then any parameters,
+  // with ";base64" last when it is there at all.
+  const header = dataUrl.slice(5, comma)
+  const body = dataUrl.slice(comma + 1)
+  const type = header.split(";")[0] || "application/octet-stream"
+
+  try {
+    if (!/;base64\s*$/i.test(header)) {
+      return new Blob([new TextEncoder().encode(decodeURIComponent(body))], { type })
+    }
+
+    const binary = atob(body)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
+    return new Blob([bytes], { type })
+  } catch {
+    return null
+  }
+}
+
 /** Turns an exported reference back into one this browser can use. */
 export async function importAsset(raw: unknown): Promise<StoredAsset | undefined> {
   if (typeof raw !== "object" || raw === null) return undefined
@@ -71,15 +108,16 @@ export async function importAsset(raw: unknown): Promise<StoredAsset | undefined
     return { type: "url", url: value.url }
   }
 
-  // Only a `data:` picture or video, `fetch` would happily go to the network
-  // for anything else, and a config file is not a thing to make requests on
-  // behalf of; the media types keep the blob to what the app actually shows.
+  // Only a `data:` picture or video: the media types keep an imported blob to
+  // what the app actually shows, whatever else a hand-edited file names.
   if (value.type === "data" && typeof value.dataUrl === "string" && isMediaDataUrl(value.dataUrl)) {
+    const blob = dataUrlToBlob(value.dataUrl)
+    if (!blob) return undefined // malformed data URL: drop the asset, keep the rest
+
     try {
-      const blob = await (await fetch(value.dataUrl)).blob()
       return { type: "upload", assetId: await putAsset(blob) }
     } catch {
-      return undefined // malformed data URL: drop the asset, keep the rest
+      return undefined // IndexedDB refused it (quota, private mode): same deal
     }
   }
 

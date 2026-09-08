@@ -33,8 +33,16 @@ function sourceHue(source: string): number {
  * to fit another row on a 600px window clipped the second line off every
  * headline in the grid, so the floor stays and the room comes from the
  * greeting above instead.
+ *
+ * One card per row is where all of that stops applying, and it is the same
+ * width the feed drops to a single column at (`news-feed.tsx`). A fixed
+ * height there is measured against a card as wide as the page, and three
+ * fifths of 18rem across a 22rem column is a picture nearer 3:1 than 16:9 -
+ * every portrait cropped to a letterbox strip. So the height comes off and
+ * the picture keeps its own frame instead; nothing lines up with anything
+ * beside it any more, because there is nothing beside it.
  */
-export const NEWS_CARD_HEIGHT = "h-[clamp(14rem,32svh,18rem)]"
+export const NEWS_CARD_HEIGHT = "h-[clamp(14rem,32svh,18rem)] max-[34rem]:h-auto"
 
 /** Stands in for the picture on sources that publish none (Wikipedia, HN, most of DEV). */
 function ImagePlaceholder({ source }: { source: string }) {
@@ -148,7 +156,16 @@ export const NewsCard = memo(function NewsCard({
               portrait to a letterbox strip. Three fifths lands between 16:9 and
               3:2 across the whole card range, and the words still fit: the
               headline is all that's left down there. */}
-          <div className={cn("h-3/5 shrink-0", seen && "opacity-55 grayscale-[40%]")}>
+          <div
+            className={cn(
+              "h-3/5 shrink-0",
+              // In one column the card has no height to take three fifths of,
+              // so the frame is stated outright: 16:9, which is the shape most
+              // of these were filed in and the one a phone reads best.
+              "max-[34rem]:h-auto max-[34rem]:aspect-video",
+              seen && "opacity-55 grayscale-[40%]"
+            )}
+          >
             {picture ? (
               <div className="h-full overflow-hidden bg-muted">
                 <img

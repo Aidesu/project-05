@@ -3,6 +3,7 @@ import { Bookmark, Eye, RefreshCw, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useReservedSpace } from "@/features/floating/use-reserved-space"
+import { useCompactLayout } from "@/hooks/use-compact-layout"
 import { isSafeHttpUrl } from "@/lib/url"
 import { cn } from "@/lib/utils"
 
@@ -25,21 +26,22 @@ import type { NewsArticle } from "./types"
 const WHEEL_EASING = 0.2
 
 /**
- * Columns are laid by width, not by breakpoint: as many ~18rem cards as fit,
- * which is two on a laptop and four across a 1400px column — no step changes
- * on the way.
+ * From 40rem up, columns are laid by width and not by breakpoint: as many
+ * ~18rem cards as fit, which is two on a small window, three on a laptop and
+ * four across a 1400px column, with no step changes on the way.
  *
- * Below three columns' worth of room that stops working. Auto-filling a narrow
- * window (a side-by-side split, a phone, a page zoomed to 200%) gives one
- * enormous card per row and turns the feed into a list two headlines long, so
- * under 56rem — three columns' worth — the count is pinned at three instead and
- * the cards take whatever width is going. The floor goes with it: a `min()`
- * that never falls below 17.5rem would push a three-column grid straight off
- * the right edge.
+ * Under that, auto-fill has nothing left to divide and hands back one column
+ * whose card is as wide as the page, so the count is named outright instead
+ * and the cards take whatever width is going (the floor goes with it: a
+ * `min()` that never falls below 17.5rem would push the row straight off the
+ * right edge). Two down to 34rem, which is the last width where a headline
+ * still fits beside another one; one below it, which is every phone held
+ * upright, and the shape a feed on a phone should have been all along.
  *
- * Both are set as custom properties rather than as two competing
- * `grid-template-columns` utilities, so which one wins is decided by the media
- * query and not by the order Tailwind happened to emit them in.
+ * The three ranges don't overlap, so which one applies is the viewport's
+ * business and never a question of the order Tailwind emitted them in, and
+ * they meet without a jump: at 40rem auto-fill gives two columns, which is
+ * exactly what the range below it was already showing.
  *
  * The gap follows the viewport's height for the same reason the card does: on
  * a short window every pixel between rows is one the feed doesn't get.
@@ -51,7 +53,8 @@ const NEWS_GRID = [
   "grid auto-rows-min gap-[clamp(0.5rem,1.5svh,0.75rem)]",
   "grid-cols-[repeat(var(--news-columns),minmax(var(--news-column-min),1fr))]",
   "[--news-columns:auto-fill] [--news-column-min:min(17.5rem,100%)]",
-  "max-[56rem]:[--news-columns:3] max-[56rem]:[--news-column-min:0px]",
+  "min-[34rem]:max-[40rem]:[--news-columns:2] min-[34rem]:max-[40rem]:[--news-column-min:0px]",
+  "max-[34rem]:[--news-columns:1] max-[34rem]:[--news-column-min:0px]",
 ].join(" ")
 
 /**
@@ -106,12 +109,16 @@ function scrollerAt(target: EventTarget | null): Element | null {
 
 /**
  * The centre column's last block: category tabs ("All" plus every category
- * chosen in settings) over a scrolling three-column grid of story cards. The
- * cards carry a headline, its source and, where the source provides one, a
- * picture and a standfirst; the full story waits in the dialog, so the page
- * itself stays quiet.
+ * chosen in settings) over a grid of story cards, as many columns wide as the
+ * page has room for and one on a phone. The cards carry a headline, its source
+ * and, where the source provides one, a picture; the full story waits in the
+ * dialog, so the page itself stays quiet.
  */
 export function NewsFeed() {
+  // Whether the feed is its own scrolling region or simply the tail of a page
+  // that scrolls. Everything below that reads differently in the two shapes
+  // hangs off this one flag (`use-compact-layout.ts`).
+  const compact = useCompactLayout()
   const enabled = useNewsStore((state) => state.enabled)
   const chosen = useNewsStore((state) => state.categories)
   const activeCategory = useNewsStore((state) => state.activeCategory)
@@ -233,12 +240,16 @@ export function NewsFeed() {
           setShown((current) => Math.min(current + CARDS_PER_PAGE, articles.length))
         }
       },
-      { root: list, rootMargin: `${LOAD_AHEAD} 0px` }
+      // Measured against whatever actually scrolls: the list itself, or the
+      // viewport once the page has taken that job over. Naming the list here
+      // while it no longer clips anything would leave the marker permanently
+      // in view, and the whole feed would mount on the first frame.
+      { root: compact ? null : list, rootMargin: `${LOAD_AHEAD} 0px` }
     )
 
     observer.observe(marker)
     return () => observer.disconnect()
-  }, [shown, articles.length])
+  }, [shown, articles.length, compact])
 
   const [selected, setSelected] = useState<NewsArticle | null>(null)
   // Sticky, like the settings sheet: mounted once, so a second story opens
@@ -273,6 +284,10 @@ export function NewsFeed() {
   // that scroll on their own (the settings sheet, the article dialog, the
   // feed itself) keep their wheel.
   useEffect(() => {
+    // Nothing to forward to on a compact page: the feed has no scrollbar of
+    // its own there, and every wheel already reaches the document.
+    if (compact) return
+
     // Over the grid the browser eases the scroll itself; jumping straight to
     // `scrollTop + delta` here would land in visible steps beside it. So a
     // forwarded wheel sets a target and a frame loop eases towards it, which
@@ -373,20 +388,32 @@ export function NewsFeed() {
       window.removeEventListener("wheel", forward)
       stop()
     }
-  }, [])
+  }, [compact])
 
   if (!enabled) return null
 
   return (
     <section
       ref={feedRef}
-      style={{
-        paddingTop: insets.top,
-        paddingRight: insets.right,
-        paddingBottom: insets.bottom,
-        paddingLeft: insets.left,
-      }}
-      className="mx-auto flex min-h-0 w-full max-w-[87.5rem] flex-col gap-2"
+      // Only a card pinned to a corner can be laid under, and on a compact
+      // page none of them is: they are in the flow above this, so there is
+      // nothing to step around and the feed keeps its full width.
+      style={
+        compact
+          ? undefined
+          : {
+              paddingTop: insets.top,
+              paddingRight: insets.right,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left,
+            }
+      }
+      className={cn(
+        "mx-auto flex w-full max-w-[87.5rem] flex-col gap-2",
+        // The row that takes what is left of the viewport, or, once the page
+        // is the thing that scrolls, simply as tall as its own cards.
+        !compact && "min-h-0 flex-1"
+      )}
     >
       {(categories.length > 1 || savedTab) && (
         <div className="flex flex-wrap items-center justify-center gap-1.5">
@@ -443,12 +470,17 @@ export function NewsFeed() {
       {/* Placeholders rather than a spinner: the grid keeps its shape while
           the headlines land, so the page below doesn't jump. */}
       {!showingSaved && news.status === "loading" && (
-        <div className={cn(NEWS_GRID, "feed-fade min-h-0 flex-1 overflow-hidden")}>
+        <div className={cn(NEWS_GRID, !compact && "feed-fade min-h-0 flex-1 overflow-hidden")}>
           {Array.from({ length: 8 }, (_, index) => (
             <div
               key={index}
               className={cn(
                 NEWS_CARD_HEIGHT,
+                // The card is `h-auto` in one column, and an empty box has
+                // nothing inside to give it height, so the placeholder carries
+                // the proportion the card lands at: a 16:9 picture over two
+                // lines of headline is very close to 4:3 overall.
+                "max-[34rem]:aspect-[4/3]",
                 "animate-pulse rounded-xl border border-border/60 bg-card/40"
               )}
             />
@@ -493,14 +525,17 @@ export function NewsFeed() {
 
       {articles.length > 0 && (
         <>
-          {/* The one scrolling region on the page, and it scrolls without a
-              scrollbar: the grid ends flush with the wallpaper. */}
           <ul
             ref={listRef}
             onPointerEnter={() => setDialogLoaded(true)}
             className={cn(
               NEWS_GRID,
-              "feed-fade scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain"
+              // The one scrolling region on a page that otherwise doesn't, and
+              // it scrolls without a scrollbar, its two cut edges dissolved by
+              // the mask. None of that applies once the page itself scrolls:
+              // there the grid simply runs on, and fading its ends would be
+              // fading the middle of a document.
+              !compact && "feed-fade scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain"
             )}
           >
             {articles.slice(0, shown).map((article) => (

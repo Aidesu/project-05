@@ -4,7 +4,6 @@ import { Plus, X } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { useFloatingCard } from "@/features/floating/use-floating-card"
-import { CORNER_CLASSES } from "@/lib/corner"
 import { cn } from "@/lib/utils"
 
 import { useChecklistStore } from "./checklist-store"
@@ -113,7 +112,7 @@ export function ChecklistCard() {
   const toggleItem = useChecklistStore((state) => state.toggleItem)
   const removeItem = useChecklistStore((state) => state.removeItem)
 
-  const { ref, style } = useFloatingCard("checklist", position, enabled)
+  const { ref, style, floating, placement } = useFloatingCard("checklist", position, enabled)
 
   const [draft, setDraft] = useState("")
 
@@ -129,8 +128,11 @@ export function ChecklistCard() {
       ref={ref}
       style={style}
       className={cn(
-        "glass-panel glass:p-3 fixed z-20 grid w-[min(17.5rem,calc(100vw-3rem))] gap-2 text-foreground",
-        CORNER_CLASSES[position]
+        "glass-panel glass:p-3 grid gap-2 text-foreground",
+        // Same trade as the player: pinned to a corner it stays out of the
+        // page's way, docked it is part of the page and takes its width.
+        floating ? "w-[min(17.5rem,calc(100vw-3rem))]" : "w-full max-w-sm",
+        placement
       )}
     >
       <p className="text-xs text-muted-foreground">Checklist</p>

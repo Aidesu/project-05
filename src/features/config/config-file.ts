@@ -104,12 +104,19 @@ const MAX_BODY = 6000
 
 // ------------------------------------------------------------- file shape
 
-type ExportedSite = {
-  url: string
-  title: string
+/**
+ * One site as the file carries it: the draft the form collects, minus the id
+ * and the timestamps the store mints on the other side, with the icon's bytes
+ * in place of a reference only this browser could resolve.
+ *
+ * Derived from `SiteDraft` rather than restated, so a field added to a site
+ * fails the build here instead of quietly going missing from every export.
+ * Every other section is typed as the config its store hands back, which buys
+ * the same thing; this was the one written out by hand.
+ */
+type ExportedSite = Omit<SiteDraft, "icon" | "description"> & {
+  /** Optional, unlike the draft's: the store keeps a blank one as absent. */
   description?: string
-  tags: string[]
-  hidden: boolean
   icon?: PortableAsset
 }
 

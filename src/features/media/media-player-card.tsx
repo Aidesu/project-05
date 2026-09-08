@@ -3,7 +3,6 @@ import { Music, Pause, Play, ShieldCheck, SkipBack, SkipForward } from "lucide-r
 import type { LucideIcon } from "lucide-react"
 
 import { useFloatingCard } from "@/features/floating/use-floating-card"
-import { CORNER_CLASSES } from "@/lib/corner"
 import { cn } from "@/lib/utils"
 
 import { useMediaSession } from "./use-media-session"
@@ -133,7 +132,7 @@ export function MediaPlayerCard() {
   // `enabled` alone would leave the card unmeasured from the render where it
   // showed nothing, and it would then sit on top of whatever shares its corner.
   const visible = enabled && media.status !== "unavailable" && media.status !== "checking"
-  const { ref, style } = useFloatingCard("media", position, visible)
+  const { ref, style, floating, placement } = useFloatingCard("media", position, visible)
 
   if (!visible) return null
 
@@ -142,8 +141,12 @@ export function MediaPlayerCard() {
       ref={ref}
       style={style}
       className={cn(
-        "glass-panel glass:p-3 fixed z-20 w-[min(15rem,calc(100vw-3rem))]",
-        CORNER_CLASSES[position]
+        "glass-panel glass:p-3",
+        // In a corner it has to be narrow enough to leave the page usable
+        // behind it; in the dock it is one row of that page, so it takes the
+        // column's width up to a comfortable reading measure.
+        floating ? "w-[min(15rem,calc(100vw-3rem))]" : "w-full max-w-sm",
+        placement
       )}
     >
       {media.status === "blocked" && (

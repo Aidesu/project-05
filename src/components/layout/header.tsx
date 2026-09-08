@@ -3,6 +3,8 @@ import { Settings } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { WeatherCompact } from "@/features/weather/weather-compact"
+import { useCompactLayout } from "@/hooks/use-compact-layout"
+import { cn } from "@/lib/utils"
 
 import { Clock } from "./clock"
 
@@ -19,6 +21,7 @@ const SettingsSheet = lazy(() =>
 )
 
 export function Header() {
+  const compact = useCompactLayout()
   const [settingsOpen, setSettingsOpen] = useState(false)
   // Sticky: once loaded the sheet stays mounted, so closing and reopening it
   // animates the way it always did rather than suspending again.
@@ -30,22 +33,34 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-10">
-      <div className="relative flex w-full items-center justify-between px-6 py-4">
+    // Sticky is free while the page is exactly one viewport: nothing scrolls
+    // under it, and it is only there so the row keeps its place above the
+    // background layer. Once the document itself scrolls it would stop being
+    // free - a strip of unbacked text laid over moving headlines - so it goes
+    // up with the rest of the page instead, and the gear comes back with a
+    // scroll to the top.
+    <header className={cn("relative z-10", !compact && "sticky top-0")}>
+      <div className="relative flex w-full items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
         {/* The wordmark is the logo; no icon beside it. */}
         <h1 className="text-2xl font-bold leading-none tracking-tighter text-foreground">
           Hi<span className="text-muted-foreground">.</span>
         </h1>
 
-        <div className="absolute left-1/2 -translate-x-1/2">
+        {/* Centred on the page rather than between its neighbours, which is
+            what taking it out of the flow buys - until there is no width to
+            spare, and a long date run under the weather pill is a worse
+            answer than an off-centre clock. Below 40rem the three of them
+            simply share the row. */}
+        <div className="absolute left-1/2 -translate-x-1/2 max-[40rem]:static max-[40rem]:translate-x-0">
           <Clock />
         </div>
 
-        {/* The clock above is out of the flow, so the wordmark and this group
-            are what `justify-between` actually spaces. Both sit at the same
-            height, and the pill renders nothing at all unless the weather is
-            set to the header, so the row's height never moves. */}
-        <div className="flex items-center gap-2">
+        {/* Where the clock is out of the flow, the wordmark and this group are
+            what `justify-between` actually spaces; where it isn't, all three
+            share the row. Either way they sit at the same height, and the pill
+            renders nothing at all unless the weather is set to the header, so
+            the row's height never moves. */}
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <WeatherCompact />
 
           <Button
