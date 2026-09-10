@@ -12,7 +12,7 @@ Every new tab becomes a page that is yours: the sites you actually open, your ow
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](#-license)
 
-[![Firefox Add-ons](https://img.shields.io/badge/Firefox-coming%20soon-FF7139?logo=firefoxbrowser&logoColor=white)](https://addons.mozilla.org/en-US/firefox/addon/hidot/)
+[![Firefox Add-ons](https://img.shields.io/amo/v/<slug>?label=Firefox&logo=firefoxbrowser&logoColor=white&color=FF7139)](https://addons.mozilla.org/en-US/firefox/addon/hidot/)
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-coming%20soon-4285F4?logo=googlechrome&logoColor=white)](#-install)
 [![No tracking](https://img.shields.io/badge/Tracking-none-3FB950)](#-privacy)
 
