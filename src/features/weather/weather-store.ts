@@ -37,7 +37,7 @@ export const useWeatherStore = create<WeatherState>()(
       display: "card",
       position: "bottom-right",
       // Manual by default: turning the card on shouldn't itself trigger a
-      // browser geolocation promptthat's only fired once the user opts
+      // browser geolocation prompt — that's only fired once the user opts
       // into "My location" themselves.
       locationMode: "manual",
       manualLocation: null,
@@ -54,7 +54,7 @@ export const useWeatherStore = create<WeatherState>()(
       name: "mainboard.weather",
       version: 3,
       /**
-       * v2 added `position`existing boards keep the original bottom-right spot.
+       * v2 added `position` — existing boards keep the original bottom-right spot.
        * v3 added `display`, and the card is what those boards were already
        * showing, so that is what they carry on showing.
        */

@@ -6,7 +6,7 @@ import { faviconUrl } from "@/lib/url"
 import type { SiteIcon } from "./types"
 
 /**
- * Resolves a site's icon to a displayable URLan uploaded blob becomes an
+ * Resolves a site's icon to a displayable URL — an uploaded blob becomes an
  * object URL (revoked on cleanup), a custom address passes through as-is,
  * and no icon at all falls back to the derived favicon. Returns `null` only
  * while an uploaded blob is still being read from IndexedDB.

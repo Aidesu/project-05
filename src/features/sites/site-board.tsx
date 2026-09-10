@@ -134,7 +134,7 @@ export function SiteBoard() {
       )}
 
       {sites.length === 0 ? (
-        // Nothing to hide the button behindit's the only thing here, so it
+        // Nothing to hide the button behind — it's the only thing here, so it
         // stays front and centre instead of waiting on a hover.
         <div className="grid justify-items-center gap-2">
           <button

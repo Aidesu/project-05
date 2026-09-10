@@ -14,7 +14,11 @@ export function relativeTime(timestamp: number, now = Date.now()): string {
   const magnitude = Math.abs(elapsed)
 
   for (const { unit, ms } of UNITS) {
-    if (magnitude >= ms) return formatter.format(Math.round(elapsed / ms), unit)
+    // Truncated, not rounded. A story filed a hundred minutes ago is an hour
+    // and forty old, and rounding calls that "2 hr ago" — reporting a headline
+    // as older than it is, in the one place a reader is judging exactly that.
+    // The unit is already the largest that fits, so this is never zero.
+    if (magnitude >= ms) return formatter.format(Math.trunc(elapsed / ms), unit)
   }
   return "just now"
 }

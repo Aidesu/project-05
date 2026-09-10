@@ -1,4 +1,4 @@
-/** Picked once per page load. A fixed list for nowlater this can react to time of day or the weather itself. */
+/** Picked once per page load. A fixed list for now — later this can react to time of day or the weather itself. */
 const GREETINGS = [
   "Welcome back!",
   "Hey.",

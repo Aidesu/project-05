@@ -1,5 +1,5 @@
 import { getAsset, putAsset } from "@/lib/asset-store"
-import { isSafeHttpUrl } from "@/lib/url"
+import { httpsUpgrade } from "@/lib/url"
 
 /**
  * How bytes are referenced inside the app: either a URL, which means the same
@@ -23,6 +23,9 @@ export const MAX_INLINED_ASSET_BYTES = 25 * 1024 * 1024
 
 /** What an export had to leave behind, so the UI can mention it. */
 export type AssetReport = { skipped: number }
+
+/** What an import had to change on the way in, so the UI can mention it too. */
+export type ImportReport = { upgraded: number }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -96,16 +99,32 @@ function dataUrlToBlob(dataUrl: string): Blob | null {
   }
 }
 
-/** Turns an exported reference back into one this browser can use. */
-export async function importAsset(raw: unknown): Promise<StoredAsset | undefined> {
+/**
+ * Turns an exported reference back into one this browser can use, noting in
+ * `report` anything it had to correct rather than take as written.
+ */
+export async function importAsset(
+  raw: unknown,
+  report: ImportReport
+): Promise<StoredAsset | undefined> {
   if (typeof raw !== "object" || raw === null) return undefined
   const value = raw as Record<string, unknown>
 
   // The file names an address rather than carrying bytes. It ends up in an
-  // `<img src>`, a `<video src>` or a CSS `url()`, so only http(s) survives:
-  // a `javascript:` or `data:` string here came from somewhere else's file.
-  if (value.type === "url" && typeof value.url === "string" && isSafeHttpUrl(value.url)) {
-    return { type: "url", url: value.url }
+  // `<img src>`, a `<video src>` or a CSS `url()`, so anything that is not
+  // http(s) is dropped outright: a `javascript:` or `data:` string here came
+  // from somewhere else's file.
+  //
+  // Plain http is the one case worth repairing instead of refusing, since the
+  // page's CSP would never load it as written; `httpsUpgrade` explains why
+  // rewriting beats both alternatives, and the count is what the import warns
+  // with afterwards.
+  if (value.type === "url" && typeof value.url === "string") {
+    const upgrade = httpsUpgrade(value.url)
+    if (!upgrade) return undefined
+
+    if (upgrade.upgraded) report.upgraded += 1
+    return { type: "url", url: upgrade.url }
   }
 
   // Only a `data:` picture or video: the media types keep an imported blob to

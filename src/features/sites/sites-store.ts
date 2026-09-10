@@ -22,7 +22,7 @@ type SitesState = {
   importConfig: (drafts: SiteDraft[]) => void
   /** Commits the final position from a completed drag-and-drop reorder.
    * Board order (the array order) is the single source of truth for display
-   * orderthe live preview while dragging is dnd-kit's, not stored here. */
+   * order — the live preview while dragging is dnd-kit's, not stored here. */
   reorderSite: (activeId: string, overId: string) => void
 }
 
@@ -49,7 +49,7 @@ function cleanTags(tags: string[]): string[] {
 
 /**
  * The board's single source of truth: plain CRUD over a list, plus the two
- * invariants that must not live in a componentURL normalisation and
+ * invariants that must not live in a component — URL normalisation and
  * deduplication. Search, filtering and sorting are derived at render time.
  */
 export const useSitesStore = create<SitesState>()(
@@ -173,7 +173,7 @@ export const useSitesStore = create<SitesState>()(
     {
       name: "mainboard.sites",
       version: 3,
-      /** Only data is persistedactions are rebuilt on every load. */
+      /** Only data is persisted — actions are rebuilt on every load. */
       partialize: (state) => ({ sites: state.sites }),
       /**
        * Bump `version` and add a case here whenever `Site` changes shape, so
@@ -186,7 +186,7 @@ export const useSitesStore = create<SitesState>()(
         if (version < 1) sites = []
         // v3 added `icon`, optional and already `undefined` on older sites,
         // so no backfill is needed.
-        // v2 added `hidden`existing sites stay visible by default.
+        // v2 added `hidden` — existing sites stay visible by default.
         if (version < 2) sites = sites.map((site) => ({ ...site, hidden: site.hidden ?? false }))
         return { sites }
       },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   hasMediaAccess,
@@ -140,10 +140,17 @@ export function useMediaSession(enabled: boolean): MediaState {
     }
   }, [enabled, access, refresh])
 
+  // The settle timer outlives the call that set it, so it is held here rather
+  // than left running: a card switched off (or a page navigated away from) a
+  // moment after a skip should not still be reading another tab afterwards.
+  const settle = useRef(0)
+  useEffect(() => () => window.clearTimeout(settle.current), [])
+
   const send = useCallback(
     (action: MediaAction) => {
       void sendMedia(action).then(() => {
-        window.setTimeout(() => void refresh(), SETTLE_DELAY)
+        window.clearTimeout(settle.current)
+        settle.current = window.setTimeout(() => void refresh(), SETTLE_DELAY)
       })
     },
     [refresh]

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { fetchCurrentWeather, reverseGeocode, WeatherApiError } from "./weather-api"
 import { useWeatherStore } from "./weather-store"
-import type { WeatherDisplay, WeatherSnapshot } from "./types"
+import type { ManualLocation, WeatherDisplay, WeatherSnapshot } from "./types"
 
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000
 
@@ -54,48 +54,52 @@ export function useWeather(surface: WeatherDisplay) {
       if (requestId.current === id) setResult(next)
     }
 
-    try {
-      let lat: number
-      let lon: number
-      let label: string
+    const fail = (error: unknown) => {
+      commit({
+        status: "error",
+        message:
+          error instanceof WeatherApiError
+            ? error.message
+            : isGeolocationError(error)
+              ? "Location access was denied or timed out."
+              : "Couldn't load the weather.",
+      })
+    }
 
-      if (locationMode === "manual") {
-        if (!manualLocation) {
-          commit({ status: "error", message: "Add a city in settings to see the weather." })
-          return
-        }
-        ;({ lat, lon, label } = manualLocation)
-      } else {
+    /** Where the reading is for. Settled before anything is fetched, so the
+     * two failures below stay distinct. */
+    let place: ManualLocation
+
+    if (locationMode === "manual") {
+      if (!manualLocation) {
+        commit({ status: "error", message: "Add a city in settings to see the weather." })
+        return
+      }
+      place = manualLocation
+    } else {
+      try {
         commit({ status: "locating" })
         const position = await locateBrowser()
-        lat = position.coords.latitude
-        lon = position.coords.longitude
-        label = (await reverseGeocode(lat, lon)) ?? "Your location"
+        const { latitude: lat, longitude: lon } = position.coords
+        place = { lat, lon, label: (await reverseGeocode(lat, lon)) ?? "Your location" }
+      } catch (error) {
+        // Only the browser refusing to say where we are, which is what a saved
+        // city is the fallback for. The forecast itself is deliberately not in
+        // this `try`: the service answers the same way whichever coordinates
+        // it is handed, so retrying it against the saved city would be a
+        // second request for the same failure — and one that succeeded would
+        // quietly show another place's weather under "My location".
+        if (!manualLocation) return fail(error)
+        place = manualLocation
       }
+    }
 
-      commit({ status: "loading", label })
-      const data = await fetchCurrentWeather(lat, lon)
-      commit({ status: "ready", data, label })
+    try {
+      commit({ status: "loading", label: place.label })
+      const data = await fetchCurrentWeather(place.lat, place.lon)
+      commit({ status: "ready", data, label: place.label })
     } catch (error) {
-      // Browser geolocation failed: fall back to the saved city, if any.
-      if (locationMode === "geo" && manualLocation) {
-        try {
-          commit({ status: "loading", label: manualLocation.label })
-          const data = await fetchCurrentWeather(manualLocation.lat, manualLocation.lon)
-          commit({ status: "ready", data, label: manualLocation.label })
-          return
-        } catch {
-          // Fall through to the error below.
-        }
-      }
-
-      const message =
-        error instanceof WeatherApiError
-          ? error.message
-          : isGeolocationError(error)
-            ? "Location access was denied or timed out."
-            : "Couldn't load the weather."
-      commit({ status: "error", message })
+      fail(error)
     }
   }, [locationMode, manualLocation])
 

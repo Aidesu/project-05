@@ -44,6 +44,7 @@ import {
   exportAsset,
   importAsset,
   type AssetReport,
+  type ImportReport,
   type PortableAsset,
 } from "./portable-asset"
 
@@ -270,7 +271,10 @@ export function configExportFilename(): string {
 // ------------------------------------------------------------------ parse
 
 export type ParseResult =
-  | { ok: true; config: ConfigImport }
+  /** `upgradedAssets` counts the addresses raised from http to https on the
+   * way in (`importAsset`), so the caller can say the file was not taken
+   * exactly as written. */
+  | { ok: true; config: ConfigImport; upgradedAssets: number }
   | { ok: false; error: string }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -338,7 +342,10 @@ function parseMediaEffects(raw: unknown): MediaEffects {
   }
 }
 
-async function parseBackgroundValue(raw: unknown): Promise<Background | undefined> {
+async function parseBackgroundValue(
+  raw: unknown,
+  report: ImportReport
+): Promise<Background | undefined> {
   if (!isRecord(raw)) return undefined
 
   if (raw.kind === "none") return { kind: "none" }
@@ -354,7 +361,7 @@ async function parseBackgroundValue(raw: unknown): Promise<Background | undefine
   }
 
   if (raw.kind === "image" || raw.kind === "video") {
-    const source = await importAsset(raw.source)
+    const source = await importAsset(raw.source, report)
     // The bytes didn't make it across; a plain background beats a layer
     // pointing at nothing.
     return source ? { kind: raw.kind, source } : { kind: "none" }
@@ -363,10 +370,13 @@ async function parseBackgroundValue(raw: unknown): Promise<Background | undefine
   return undefined
 }
 
-async function parseBackground(raw: unknown): Promise<BackgroundConfig | undefined> {
+async function parseBackground(
+  raw: unknown,
+  report: ImportReport
+): Promise<BackgroundConfig | undefined> {
   if (!isRecord(raw)) return undefined
 
-  const background = await parseBackgroundValue(raw.background)
+  const background = await parseBackgroundValue(raw.background, report)
   if (!background) return undefined
 
   const gradients = Array.isArray(raw.gradients)
@@ -383,7 +393,7 @@ async function parseBackground(raw: unknown): Promise<BackgroundConfig | undefin
   }
 }
 
-async function parseSite(raw: unknown): Promise<SiteDraft | null> {
+async function parseSite(raw: unknown, report: ImportReport): Promise<SiteDraft | null> {
   if (!isRecord(raw) || typeof raw.url !== "string") return null
 
   return {
@@ -392,14 +402,14 @@ async function parseSite(raw: unknown): Promise<SiteDraft | null> {
     description: asString(raw.description) ?? "",
     tags: Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === "string") : [],
     hidden: raw.hidden === true,
-    icon: await importAsset(raw.icon),
+    icon: await importAsset(raw.icon, report),
   }
 }
 
-function parseSites(raw: unknown): Promise<SiteDraft[]> | undefined {
+function parseSites(raw: unknown, report: ImportReport): Promise<SiteDraft[]> | undefined {
   if (!Array.isArray(raw)) return undefined
 
-  return Promise.all(raw.map(parseSite)).then((sites) =>
+  return Promise.all(raw.map((site) => parseSite(site, report))).then((sites) =>
     sites.filter((site): site is SiteDraft => site !== null)
   )
 }
@@ -612,9 +622,13 @@ function parseNews(
  * older build, or one whose wallpaper bytes were left out, still restores
  * everything else. Only a file that isn't ours at all is refused.
  *
- * Only v1 exists today: when the format changes, branch on `data.version`
- * here the same way each store's `migrate` branches on its own, so a file
- * kept on someone's disk still imports.
+ * Every version through `CONFIG_EXPORT_VERSION` imports, and the header at
+ * the top of this file records what each one added. No branch on
+ * `data.version` has been needed yet: every field a later version introduced
+ * is optional, so an older file simply carries none of them and the section
+ * it belongs to is left alone. A change that cannot be read that way is the
+ * one that needs a branch here, the way each store's `migrate` branches on
+ * its own.
  */
 export async function parseConfigFile(json: string): Promise<ParseResult> {
   let data: unknown
@@ -626,12 +640,16 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
 
   if (!isRecord(data)) return { ok: false, error: "That file isn't a configuration export." }
 
+  // Filled in as the file is read, by the one step that corrects rather than
+  // accepts or drops (`importAsset`), and handed back so the caller can say so.
+  const report: ImportReport = { upgraded: 0 }
+
   // The sites-only export that came before this one: read as a config
   // carrying nothing but a board.
   if (data.app === LEGACY_SITES_APP) {
-    const sites = await parseSites(data.sites)
+    const sites = await parseSites(data.sites, report)
     if (!sites?.length) return { ok: false, error: "No sites found in that file." }
-    return { ok: true, config: { sites } }
+    return { ok: true, config: { sites }, upgradedAssets: report.upgraded }
   }
 
   if (data.app !== APP) {
@@ -646,8 +664,8 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
   const config: ConfigImport = {
     theme: asOneOf(data.theme, THEMES),
     glass: parseGlass(data.glass),
-    background: await parseBackground(data.background),
-    sites: await parseSites(data.sites),
+    background: await parseBackground(data.background, report),
+    sites: await parseSites(data.sites, report),
     weather: parseWeather(data.weather),
     checklist: parseChecklist(data.checklist),
     media: parseMedia(data.media),
@@ -662,7 +680,7 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
     return { ok: false, error: "That file has nothing left to import." }
   }
 
-  return { ok: true, config }
+  return { ok: true, config, upgradedAssets: report.upgraded }
 }
 
 /** One line per section a parsed file carries, for the confirmation dialog. */

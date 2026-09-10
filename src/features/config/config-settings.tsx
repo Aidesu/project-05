@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react"
+import { useRef, useState, type ChangeEvent } from "react"
 import { Download, Upload } from "lucide-react"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
@@ -36,6 +36,21 @@ export function ConfigSettings() {
   const [busy, setBusy] = useState(false)
   /** A parsed file waiting on the confirmation dialog, importing replaces. */
   const [pending, setPending] = useState<ConfigImport | null>(null)
+  /**
+   * Whether the pending file was taken rather than dropped.
+   *
+   * Confirming closes the dialog, and Radix's `AlertDialogAction` is a
+   * `Dialog.Close`: it runs this component's `onClick` and then calls
+   * `onOpenChange(false)`, both inside the same click. React has not
+   * re-rendered in between, so `pending` is still set when the close path
+   * reads it, and without this flag the cancel would discard the very uploads
+   * `applyConfig` had just installed — the imported wallpaper and every custom
+   * site icon deleted from IndexedDB the moment they arrived.
+   *
+   * A ref rather than state for the same reason: it has to be true *now*, not
+   * on the next render.
+   */
+  const imported = useRef(false)
 
   const activeTheme: Theme = theme === "light" || theme === "dark" ? theme : "system"
 
@@ -81,6 +96,19 @@ export function ConfigSettings() {
         toast.error(result.error)
         return
       }
+
+      // Raised alongside the confirmation rather than after it: the file was
+      // not taken exactly as written, and that is worth knowing while the
+      // decision to import is still open.
+      if (result.upgradedAssets > 0) {
+        const one = result.upgradedAssets === 1
+        toast.warning(
+          `${one ? "One http address was" : `${result.upgradedAssets} http addresses were`} ` +
+            "raised to https, which is the only way this page may load a picture."
+        )
+      }
+
+      imported.current = false
       setPending(result.config)
     } catch {
       toast.error("Could not read that file.")
@@ -92,13 +120,15 @@ export function ConfigSettings() {
   function handleConfirm() {
     if (!pending) return
 
+    imported.current = true
     applyConfig(pending, setTheme)
     setPending(null)
     toast.success("Configuration imported.")
   }
 
   function handleCancel() {
-    if (pending) discardConfig(pending)
+    if (pending && !imported.current) discardConfig(pending)
+    imported.current = false
     setPending(null)
   }
 
@@ -114,7 +144,16 @@ export function ConfigSettings() {
             Export
           </Button>
 
-          <Button asChild variant="secondary" size="sm" disabled={busy}>
+          {/* `aria-disabled`, because `asChild` hands every prop to the
+              `<label>` and a label has no disabled state: the input below is
+              what has to refuse the click. */}
+          <Button
+            asChild
+            variant="secondary"
+            size="sm"
+            aria-disabled={busy}
+            className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          >
             <label className="cursor-pointer">
               <Upload />
               Import
@@ -122,6 +161,7 @@ export function ConfigSettings() {
                 type="file"
                 accept="application/json"
                 onChange={(event) => void handleFile(event)}
+                disabled={busy}
                 className="sr-only"
               />
             </label>

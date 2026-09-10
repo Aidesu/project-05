@@ -5,7 +5,7 @@ export type SiteIcon =
 
 export type Site = {
   id: string
-  /** Normalised absolute URLthe deduplication key. */
+  /** Normalised absolute URL — the deduplication key. */
   url: string
   title: string
   description?: string

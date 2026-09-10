@@ -55,13 +55,10 @@ export function CustomFeedDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         {/* Mounted fresh each time, so a previous search never bleeds into
-            the next one and there is no reset to remember. */}
-        <FeedFinder
-          key={String(open)}
-          deskId={deskId}
-          deskLabel={deskLabel}
-          onDone={() => onOpenChange(false)}
-        />
+            the next one and there is no reset to remember. That comes from
+            `DialogContent` itself, which renders nothing while the dialog is
+            closed: a `key` here only ever held the one value. */}
+        <FeedFinder deskId={deskId} deskLabel={deskLabel} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   )

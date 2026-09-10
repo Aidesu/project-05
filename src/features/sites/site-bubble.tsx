@@ -65,7 +65,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
             // disc so there is something to lift. Under glass the disc is
             // already there and brightens instead (`index.css`).
             "hover:-translate-y-0.5 hover:scale-105 hover:bg-foreground/8 active:translate-y-0 active:scale-100",
-            // A loaded favicon carries its own edgesonly the fallback
+            // A loaded favicon carries its own edges — only the fallback
             // initial needs a border to read as a button.
             faviconFailed && "border hover:border-foreground/30"
           )}
@@ -105,7 +105,7 @@ export function SiteBubble({ site, onEdit, drag }: SiteBubbleProps) {
         </button>
       </div>
 
-      {/* The actual drag source, below the centered iconno background, so
+      {/* The actual drag source, below the centered icon — no background, so
           it stays out of the way until you're looking for it. The space is
           reserved even when invisible, so its fade-in on hover doesn't push
           neighbouring bubbles around. */}

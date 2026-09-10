@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { putAsset } from "@/lib/asset-store"
-import { normalizeUrl } from "@/lib/url"
+import { deleteAsset, putAsset } from "@/lib/asset-store"
+import { normalizeMediaUrl } from "@/lib/url"
 
 import { SiteTagsField } from "./site-tags-field"
 import { useSitesStore } from "./sites-store"
@@ -38,7 +38,7 @@ const MAX_ICON_UPLOAD_MB = 5
 /**
  * What the icon control is showing, distinct from `SiteIcon`: "default"
  * covers a never-customised icon, and "file" is a pending upload not yet
- * written to IndexedDBthat only happens on save, so cancelling leaves no
+ * written to IndexedDB — that only happens on save, so cancelling leaves no
  * orphaned blob behind.
  */
 type IconField =
@@ -114,6 +114,19 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
   )
   const iconPreview = filePreview ?? resolvedPreview
 
+  // The picture that would not load. A pasted address can 404, and the derived
+  // favicon is a guess from the domain that the provider may simply not hold,
+  // so the frame falls back to the initial the way a bubble does rather than
+  // showing the browser's broken-image glyph.
+  const [previewFailed, setPreviewFailed] = useState(false)
+  // Adjusted during render, per the React docs' "storing information from
+  // previous renders": a different address deserves its own attempt.
+  const [trackedPreview, setTrackedPreview] = useState(iconPreview)
+  if (iconPreview !== trackedPreview) {
+    setTrackedPreview(iconPreview)
+    setPreviewFailed(false)
+  }
+
   function bind(key: "url" | "title" | "description") {
     return (event: ChangeEvent<HTMLInputElement>) => {
       const { value } = event.target
@@ -140,9 +153,9 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
   }
 
   function applyIconUrl() {
-    const url = normalizeUrl(iconUrlInput)
+    const url = normalizeMediaUrl(iconUrlInput)
     if (!url) {
-      toast.error("Invalid address.")
+      toast.error("Needs a valid https address.")
       return
     }
     setFields((current) => ({ ...current, icon: { type: "url", url } }))
@@ -158,11 +171,15 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
     event.preventDefault()
 
     let icon: SiteIcon | undefined
+    /** The blob this submit wrote, so it can be taken back out if the store
+     * refuses the draft it was written for. */
+    let uploaded: string | null = null
+
     if (fields.icon.type === "file") {
       setSavingIcon(true)
       try {
-        const assetId = await putAsset(fields.icon.file)
-        icon = { type: "upload", assetId }
+        uploaded = await putAsset(fields.icon.file)
+        icon = { type: "upload", assetId: uploaded }
       } catch {
         setSavingIcon(false)
         setError("Could not save the icon image.")
@@ -186,6 +203,11 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
     const result = site ? updateSite(site.id, draft) : addSite(draft)
 
     if (!result.ok) {
+      // The upload had to be written before the store could be asked, and the
+      // store has just refused the draft that pointed at it (a duplicate
+      // address, an unreadable one). The form keeps the pending file, so
+      // leaving this behind would orphan another blob on every retry.
+      if (uploaded) void deleteAsset(uploaded).catch(() => {})
       setError(result.error)
       return
     }
@@ -226,7 +248,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
         />
       </div>
 
-      {/* Adding asks for the address and nothing elsethe title falls back to
+      {/* Adding asks for the address and nothing else — the title falls back to
           the domain and the icon is derived from it. The rest is enrichment,
           offered once the site is on the board. */}
       {site && (
@@ -245,11 +267,12 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
             <Label>Icon</Label>
             <div className="flex items-center gap-3">
               <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border bg-muted">
-                {iconPreview ? (
+                {iconPreview && !previewFailed ? (
                   <img
                     src={iconPreview}
                     alt=""
                     referrerPolicy="no-referrer"
+                    onError={() => setPreviewFailed(true)}
                     className="size-full object-cover"
                   />
                 ) : (
@@ -261,7 +284,18 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
 
               <div className="grid flex-1 gap-2">
                 <div className="flex gap-2">
-                  <Button asChild variant="secondary" size="sm" disabled={savingIcon}>
+                  {/* `aria-disabled` and not `disabled`: `asChild` puts every
+                      prop on the `<label>`, and a label has no disabled state
+                      to put one in, so the file input underneath stayed live.
+                      The input is what actually has to refuse the click; this
+                      pair is what makes it look and read that way. */}
+                  <Button
+                    asChild
+                    variant="secondary"
+                    size="sm"
+                    aria-disabled={savingIcon}
+                    className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+                  >
                     <label className="cursor-pointer">
                       <Upload />
                       Upload
@@ -269,6 +303,7 @@ function SiteForm({ site, onDone }: { site?: Site; onDone: () => void }) {
                         type="file"
                         accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
                         onChange={handleIconFile}
+                        disabled={savingIcon}
                         className="sr-only"
                       />
                     </label>

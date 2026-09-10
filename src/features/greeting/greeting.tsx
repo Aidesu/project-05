@@ -2,7 +2,7 @@ import { useState } from "react"
 
 import { randomGreeting } from "./greetings"
 
-/** Standalone titlealways shown, independent of the weather card below it. */
+/** Standalone title — always shown, independent of the weather card below it. */
 export function Greeting() {
   const [greeting] = useState(randomGreeting)
 

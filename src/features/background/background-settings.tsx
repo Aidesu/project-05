@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Section } from "@/features/settings/section"
 import { putAsset } from "@/lib/asset-store"
-import { normalizeUrl } from "@/lib/url"
+import { normalizeMediaUrl } from "@/lib/url"
 
 import { useBackgroundStore } from "./background-store"
 import { RgbSliders, TrackSlider } from "./color-slider"
@@ -110,9 +110,9 @@ export function BackgroundSettings() {
   }
 
   function applyUrl(media: "image" | "video") {
-    const url = normalizeUrl(mediaUrl)
+    const url = normalizeMediaUrl(mediaUrl)
     if (!url) {
-      toast.error("Invalid address.")
+      toast.error("Needs a valid https address.")
       return
     }
     setBackground({ kind: media, source: { type: "url", url } })
@@ -244,13 +244,23 @@ export function BackgroundSettings() {
 
       {(kind === "image" || kind === "video") && (
         <div className="grid gap-3 pt-1">
-          <Button asChild variant="secondary" size="sm" disabled={busy}>
+          {/* `aria-disabled`, because `asChild` hands every prop to the
+              `<label>` and a label has no disabled state: the input below is
+              what has to refuse the click. */}
+          <Button
+            asChild
+            variant="secondary"
+            size="sm"
+            aria-disabled={busy}
+            className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
+          >
             <label className="cursor-pointer">
               {busy ? "Saving…" : `Choose a file (max ${MAX_UPLOAD_MB[kind]} MB)`}
               <input
                 type="file"
                 accept={kind === "image" ? "image/*" : "video/*"}
                 onChange={(event) => void handleUpload(event, kind)}
+                disabled={busy}
                 className="sr-only"
               />
             </label>

@@ -167,18 +167,25 @@ function parseCurrentEvents(html: string, publishedAt: number): NewsArticle[] {
 }
 
 /**
- * One day's stories, parsed once and shared by every tab that asks for it: the
- * eight-day walk would otherwise re-read the same pages on each new tab.
+ * Days already read, so the eight-day walk doesn't fetch the same page twice
+ * within a tab. Module state, so it lives exactly as long as the page does:
+ * every new tab starts empty, and nothing here is shared between tabs.
+ *
+ * Only days that are over go in. A finished portal page cannot say anything
+ * new, where today's fills in as the day goes on — and today's is the one page
+ * a refresh could bring something new from, so keeping it here made the feed's
+ * refresh button a no-op for this desk for as long as the tab stayed open.
  *
  * Deliberately not given an abort signal: the day belongs to whoever asks for
- * it next, so leaving a tab must not cancel a page another tab is waiting on.
- * `useNews` drops the results of a request it no longer wants.
+ * it next, so one caller giving up must not cancel a page another is waiting
+ * on. `useNews` drops the results of a request it no longer wants.
  */
 const currentEventsDays = new Map<string, Promise<NewsArticle[]>>()
 
-function currentEventsDay(date: Date): Promise<NewsArticle[]> {
+/** `closed` is false for today alone, whose page is still being written. */
+function currentEventsDay(date: Date, closed: boolean): Promise<NewsArticle[]> {
   const page = portalPage(date)
-  const cached = currentEventsDays.get(page)
+  const cached = closed ? currentEventsDays.get(page) : undefined
   if (cached) return cached
 
   const url = new URL(CURRENT_EVENTS_ENDPOINT)
@@ -205,12 +212,12 @@ function currentEventsDay(date: Date): Promise<NewsArticle[]> {
       return parseCurrentEvents(data.parse.text, publishedAt)
     })
     .catch((error: unknown) => {
-      // A failed day is not remembered, so the next tab retries it.
+      // A failed day is not remembered, so the next walk retries it.
       currentEventsDays.delete(page)
       throw error
     })
 
-  currentEventsDays.set(page, pending)
+  if (closed) currentEventsDays.set(page, pending)
   return pending
 }
 
@@ -225,7 +232,8 @@ async function fetchCurrentEvents(topics: string[] | null): Promise<NewsArticle[
 
     let day: NewsArticle[]
     try {
-      day = await currentEventsDay(date)
+      // Every day but the first is over, and a finished page is worth keeping.
+      day = await currentEventsDay(date, daysBack > 0)
     } catch (error) {
       // One bad day doesn't sink the feed: the walk carries on and only
       // reports the failure if no day at all came back.
@@ -251,6 +259,24 @@ async function fetchCurrentEvents(topics: string[] | null): Promise<NewsArticle[
 
 // ------------------------------------------------------------ Hacker News
 
+/**
+ * A story's timestamp, or `null` where the source gave one that cannot be
+ * read.
+ *
+ * Sorting the merged feed is the whole point of it, so a story without one is
+ * dropped rather than floated to the top of the grid on a `Date.now()` guess —
+ * the same rule `feed-parser.ts` applies to every RSS desk. The three JSON
+ * sources below get it too: a field named `published_at` is a promise about
+ * the shape of someone else's API, not a date.
+ *
+ * `Number.isFinite` rather than `!Number.isNaN`, so an `Infinity` out of an
+ * arithmetic slip is caught with it.
+ */
+function publishedAtOf(value: string | number | undefined): number | null {
+  const parsed = typeof value === "number" ? value : value ? Date.parse(value) : Number.NaN
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 type HackerNewsHit = {
   objectID: string
   title: string
@@ -268,22 +294,25 @@ async function fetchHackerNews(signal: AbortSignal): Promise<NewsArticle[]> {
 
   const data = await fetchJson<{ hits: HackerNewsHit[] }>(url, signal)
 
-  return data.hits
-    .filter((hit) => hit.title)
-    .map((hit) => {
-      const thread = `https://news.ycombinator.com/item?id=${hit.objectID}`
-      return {
+  return data.hits.flatMap((hit) => {
+    const filed = publishedAtOf(hit.created_at_i * 1000)
+    if (!hit.title || filed === null) return []
+
+    const thread = `https://news.ycombinator.com/item?id=${hit.objectID}`
+    return [
+      {
         id: `hn-${hit.objectID}`,
         title: hit.title,
         // Ask HN and job posts carry no link of their own: the thread is the story.
         url: hit.url ?? thread,
         source: hit.url ? hostnameOf(hit.url) : "Hacker News",
-        publishedAt: hit.created_at_i * 1000,
+        publishedAt: filed,
         author: hit.author,
         facts: [`${hit.points} points`, `${hit.num_comments} comments`],
         secondaryLink: hit.url ? { label: "Discussion", url: thread } : undefined,
-      }
-    })
+      },
+    ]
+  })
 }
 
 // -------------------------------------------------------------- Spaceflight
@@ -306,16 +335,23 @@ async function fetchSpaceflight(signal: AbortSignal): Promise<NewsArticle[]> {
 
   const data = await fetchJson<{ results: SpaceflightArticle[] }>(url, signal)
 
-  return data.results.map((article) => ({
-    id: `space-${article.id}`,
-    title: article.title,
-    url: article.url,
-    source: article.news_site,
-    publishedAt: Date.parse(article.published_at),
-    summary: article.summary || undefined,
-    imageUrl: article.image_url ?? undefined,
-    author: article.authors[0]?.name,
-  }))
+  return data.results.flatMap((article) => {
+    const filed = publishedAtOf(article.published_at)
+    if (filed === null) return []
+
+    return [
+      {
+        id: `space-${article.id}`,
+        title: article.title,
+        url: article.url,
+        source: article.news_site,
+        publishedAt: filed,
+        summary: article.summary || undefined,
+        imageUrl: article.image_url ?? undefined,
+        author: article.authors[0]?.name,
+      },
+    ]
+  })
 }
 
 // --------------------------------------------------------------------- DEV
@@ -341,23 +377,30 @@ async function fetchDev(signal: AbortSignal): Promise<NewsArticle[]> {
 
   const data = await fetchJson<DevArticle[]>(url, signal)
 
-  return data.map((article) => ({
-    id: `dev-${article.id}`,
-    title: decodeEntities(article.title),
-    url: article.url,
-    source: "DEV",
-    publishedAt: Date.parse(article.published_at),
-    summary: article.description ? decodeEntities(article.description) : undefined,
-    // Only a real cover: DEV's fallback social image is a generated card with
-    // the title printed on it, which would repeat the headline underneath.
-    imageUrl: article.cover_image ?? undefined,
-    author: article.user.name,
-    facts: [
-      `${article.reading_time_minutes} min read`,
-      `${article.public_reactions_count} reactions`,
-      ...article.tag_list.slice(0, 3).map((tag) => `#${tag}`),
-    ],
-  }))
+  return data.flatMap((article) => {
+    const filed = publishedAtOf(article.published_at)
+    if (filed === null) return []
+
+    return [
+      {
+        id: `dev-${article.id}`,
+        title: decodeEntities(article.title),
+        url: article.url,
+        source: "DEV",
+        publishedAt: filed,
+        summary: article.description ? decodeEntities(article.description) : undefined,
+        // Only a real cover: DEV's fallback social image is a generated card with
+        // the title printed on it, which would repeat the headline underneath.
+        imageUrl: article.cover_image ?? undefined,
+        author: article.user.name,
+        facts: [
+          `${article.reading_time_minutes} min read`,
+          `${article.public_reactions_count} reactions`,
+          ...article.tag_list.slice(0, 3).map((tag) => `#${tag}`),
+        ],
+      },
+    ]
+  })
 }
 
 // ------------------------------------------------------------------ Desks
