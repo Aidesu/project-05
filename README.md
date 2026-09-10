@@ -89,7 +89,7 @@ The extension is not published yet. The store links will land here as soon as th
 
 | Browser              | Where                                    |
 | -------------------- | ---------------------------------------- |
-| **Firefox**          | *coming soon Firefox Add-ons*          |
+| **Firefox**          | [*Firefox Add-ons*                       |](https://addons.mozilla.org/en-US/firefox/addon/hidot/)          |
 | **Chrome** / **Edge** | *coming soon Chrome Web Store*         |
 
 Once installed, it takes over the new tab page straight away: every `Ctrl+T` opens your board, with the caret already in the address bar.
