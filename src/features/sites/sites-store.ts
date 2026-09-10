@@ -37,12 +37,36 @@ function arrayMove<T>(items: T[], from: number, to: number): T[] {
   return next
 }
 
+/**
+ * Ceilings, not opinions — the same reasoning `custom-feeds-store` writes down
+ * for desks. A board is a page of bubbles and every field on one is a line of
+ * text under it, so none of these is reachable by hand: the form has no length
+ * limit of its own, which is exactly why they belong here, where the import
+ * path passes too. A file is the only thing that ever arrives with a title a
+ * megabyte wide, and `localStorage` holds about five for the whole app — one
+ * that overflows takes every other store's persistence down with it, silently,
+ * because that is how `persist` fails.
+ */
+const MAX_SITE_TITLE = 120
+const MAX_SITE_DESCRIPTION = 300
+const MAX_TAGS = 12
+const MAX_TAG_LENGTH = 24
+/** Generous for a board anyone builds by hand, and a floor under the file that
+ * describes fifty thousand. Exported because the import mirrors it. */
+export const MAX_SITES = 500
+
+/** Trimmed and clamped, so no one field can grow past the line that shows it. */
+function cleanText(value: string, limit: number): string {
+  return value.trim().slice(0, limit)
+}
+
 /** Trimmed, lower-cased, order-preserving, no duplicates. */
 function cleanTags(tags: string[]): string[] {
   const out = new Set<string>()
   for (const tag of tags) {
-    const clean = tag.trim().toLowerCase()
+    const clean = cleanText(tag, MAX_TAG_LENGTH).toLowerCase()
     if (clean) out.add(clean)
+    if (out.size >= MAX_TAGS) break
   }
   return [...out]
 }
@@ -68,8 +92,8 @@ export const useSitesStore = create<SitesState>()(
         const site: Site = {
           id: crypto.randomUUID(),
           url,
-          title: draft.title.trim() || hostnameOf(url),
-          description: draft.description.trim() || undefined,
+          title: cleanText(draft.title, MAX_SITE_TITLE) || hostnameOf(url),
+          description: cleanText(draft.description, MAX_SITE_DESCRIPTION) || undefined,
           tags: cleanTags(draft.tags),
           hidden: draft.hidden,
           icon: draft.icon,
@@ -94,8 +118,8 @@ export const useSitesStore = create<SitesState>()(
         const site: Site = {
           ...existing,
           url,
-          title: draft.title.trim() || hostnameOf(url),
-          description: draft.description.trim() || undefined,
+          title: cleanText(draft.title, MAX_SITE_TITLE) || hostnameOf(url),
+          description: cleanText(draft.description, MAX_SITE_DESCRIPTION) || undefined,
           tags: cleanTags(draft.tags),
           hidden: draft.hidden,
           icon: draft.icon,
@@ -129,6 +153,11 @@ export const useSitesStore = create<SitesState>()(
         const sites: Site[] = []
 
         for (const draft of drafts) {
+          // Capped here as well as at the door, the way the saved stories are:
+          // a file is not obliged to have respected the ceiling in force when
+          // it was written.
+          if (sites.length >= MAX_SITES) break
+
           const url = normalizeUrl(draft.url)
           if (!url || urls.has(url)) continue
           urls.add(url)
@@ -136,8 +165,8 @@ export const useSitesStore = create<SitesState>()(
           sites.push({
             id: crypto.randomUUID(),
             url,
-            title: draft.title.trim() || hostnameOf(url),
-            description: draft.description.trim() || undefined,
+            title: cleanText(draft.title, MAX_SITE_TITLE) || hostnameOf(url),
+            description: cleanText(draft.description, MAX_SITE_DESCRIPTION) || undefined,
             tags: cleanTags(draft.tags),
             hidden: draft.hidden,
             icon: draft.icon,

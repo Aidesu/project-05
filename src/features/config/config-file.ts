@@ -31,7 +31,7 @@ import {
   type NewsConfig,
 } from "@/features/news/news-store"
 import type { CustomCategoryId, CustomDesk, NewsCategoryId } from "@/features/news/types"
-import { useSitesStore } from "@/features/sites/sites-store"
+import { MAX_SITES, useSitesStore } from "@/features/sites/sites-store"
 import type { SiteDraft } from "@/features/sites/types"
 import { useWeatherStore, type WeatherConfig } from "@/features/weather/weather-store"
 import { WEATHER_DISPLAYS } from "@/features/weather/types"
@@ -86,7 +86,12 @@ const LOCATION_MODES = ["geo", "manual"] as const
 
 const CATEGORY_IDS = NEWS_CATEGORIES.map((category) => category.id)
 
-/** Mirrors the ceilings `custom-feeds-store` enforces on what it is handed. */
+/**
+ * Mirrors the ceilings `custom-feeds-store` enforces on what it is handed. The
+ * board's own ceiling is imported from `sites-store` instead of being restated
+ * here: it is applied at both ends, and two copies of a number are two numbers
+ * to keep in step.
+ */
 const MAX_IMPORTED_DESKS = 12
 const MAX_IMPORTED_FEEDS = 20
 const MAX_IMPORTED_SAVED = 200
@@ -272,9 +277,10 @@ export function configExportFilename(): string {
 
 export type ParseResult =
   /** `upgradedAssets` counts the addresses raised from http to https on the
-   * way in (`importAsset`), so the caller can say the file was not taken
-   * exactly as written. */
-  | { ok: true; config: ConfigImport; upgradedAssets: number }
+   * way in (`importAsset`), and `oversizedAssets` the inlined uploads too
+   * large to take at all, so the caller can say the file was not taken exactly
+   * as written rather than quietly dropping half of it. */
+  | { ok: true; config: ConfigImport; upgradedAssets: number; oversizedAssets: number }
   | { ok: false; error: string }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -409,8 +415,15 @@ async function parseSite(raw: unknown, report: ImportReport): Promise<SiteDraft 
 function parseSites(raw: unknown, report: ImportReport): Promise<SiteDraft[]> | undefined {
   if (!Array.isArray(raw)) return undefined
 
-  return Promise.all(raw.map((site) => parseSite(site, report))).then((sites) =>
-    sites.filter((site): site is SiteDraft => site !== null)
+  // Cut before parsing, not after: every site parsed writes its inlined icon
+  // into IndexedDB, so a file describing fifty thousand of them would install
+  // fifty thousand blobs on its way to being trimmed to five hundred. The
+  // store applies the same ceiling again on the other side.
+  //
+  // The fields inside one are clamped there too rather than here, since the
+  // form has no length limit of its own and the two paths should agree.
+  return Promise.all(raw.slice(0, MAX_SITES).map((site) => parseSite(site, report))).then(
+    (sites) => sites.filter((site): site is SiteDraft => site !== null)
   )
 }
 
@@ -640,16 +653,23 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
 
   if (!isRecord(data)) return { ok: false, error: "That file isn't a configuration export." }
 
-  // Filled in as the file is read, by the one step that corrects rather than
-  // accepts or drops (`importAsset`), and handed back so the caller can say so.
-  const report: ImportReport = { upgraded: 0 }
+  // Filled in as the file is read, by the one step that does something other
+  // than accept a value or drop it (`importAsset`, which corrects an http
+  // address and refuses an oversized upload), and handed back so the caller
+  // can say what was not taken as written.
+  const report: ImportReport = { upgraded: 0, oversized: 0 }
 
   // The sites-only export that came before this one: read as a config
   // carrying nothing but a board.
   if (data.app === LEGACY_SITES_APP) {
     const sites = await parseSites(data.sites, report)
     if (!sites?.length) return { ok: false, error: "No sites found in that file." }
-    return { ok: true, config: { sites }, upgradedAssets: report.upgraded }
+    return {
+      ok: true,
+      config: { sites },
+      upgradedAssets: report.upgraded,
+      oversizedAssets: report.oversized,
+    }
   }
 
   if (data.app !== APP) {
@@ -680,7 +700,12 @@ export async function parseConfigFile(json: string): Promise<ParseResult> {
     return { ok: false, error: "That file has nothing left to import." }
   }
 
-  return { ok: true, config, upgradedAssets: report.upgraded }
+  return {
+    ok: true,
+    config,
+    upgradedAssets: report.upgraded,
+    oversizedAssets: report.oversized,
+  }
 }
 
 /** One line per section a parsed file carries, for the confirmation dialog. */

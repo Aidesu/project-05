@@ -108,6 +108,17 @@ export function ConfigSettings() {
         )
       }
 
+      // The other half of taking a file as written: an upload past the size an
+      // export can carry was left out entirely, and a wallpaper that silently
+      // failed to arrive reads as the app losing it.
+      if (result.oversizedAssets > 0) {
+        const one = result.oversizedAssets === 1
+        toast.warning(
+          `${result.oversizedAssets} upload${one ? " was" : "s were"} too large to import ` +
+            `and ${one ? "was" : "were"} left out.`
+        )
+      }
+
       imported.current = false
       setPending(result.config)
     } catch {

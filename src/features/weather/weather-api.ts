@@ -1,5 +1,27 @@
 import type { ManualLocation, WeatherSnapshot } from "./types"
 
+/**
+ * Decimal places the two services are asked for.
+ *
+ * Two is about 1.1 km, which is below anything a forecast or a place name can
+ * tell apart, and it is the difference between handing a third party the
+ * neighbourhood someone is in and handing it their doorstep. The browser
+ * reports far finer than that, and there is nothing to do with the rest.
+ *
+ * Rounded here rather than at the call sites, deliberately: this module is the
+ * only place either service is reached, so nothing can arrive at full
+ * precision by coming in another way.
+ */
+const COORD_DECIMALS = 2
+
+/** One coordinate at the precision above. Also the key the cache groups a
+ * reading under, so a cache hit and a request mean the same place. */
+export function coarse(value: number): number {
+  // `+` rather than `Number(...)`: it drops the "-0" that a coordinate just
+  // south or west of zero rounds to, which would key two names for one place.
+  return +value.toFixed(COORD_DECIMALS) || 0
+}
+
 /** Thrown for failures worth showing verbatim in the card (vs. a generic fallback message). */
 export class WeatherApiError extends Error {}
 
@@ -25,13 +47,19 @@ export async function geocodeCity(query: string): Promise<ManualLocation | null>
 
 /**
  * Reverse geocoding for the "my location" label. Open-Meteo has no reverse
- * endpoint, so this uses BigDataCloud's free, key-less client API instead.
- * Best-effort: a failure here just falls back to a generic label.
+ * endpoint, so this uses BigDataCloud's free, key-less client API instead —
+ * the one service the app reaches that is named nowhere else, which is why
+ * the README lists it beside Open-Meteo.
+ *
+ * Called once per place rather than once per reading: the name is cached for
+ * a week (`weather-cache.ts`), so an ordinary week of new tabs asks this
+ * nothing at all. Best-effort either way: a failure falls back to a generic
+ * label.
  */
 export async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
   const url = new URL("https://api.bigdatacloud.net/data/reverse-geocode-client")
-  url.searchParams.set("latitude", String(lat))
-  url.searchParams.set("longitude", String(lon))
+  url.searchParams.set("latitude", String(coarse(lat)))
+  url.searchParams.set("longitude", String(coarse(lon)))
   url.searchParams.set("localityLanguage", "en")
 
   try {
@@ -51,8 +79,8 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string |
 
 export async function fetchCurrentWeather(lat: number, lon: number): Promise<WeatherSnapshot> {
   const url = new URL("https://api.open-meteo.com/v1/forecast")
-  url.searchParams.set("latitude", String(lat))
-  url.searchParams.set("longitude", String(lon))
+  url.searchParams.set("latitude", String(coarse(lat)))
+  url.searchParams.set("longitude", String(coarse(lon)))
   url.searchParams.set(
     "current",
     "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day"

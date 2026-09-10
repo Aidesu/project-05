@@ -103,7 +103,7 @@ Until then, you can build it and load it yourself see [`BUILD.md`](./BUILD.md).
 - **No account, no server, no analytics.** Nothing about you is collected or sent anywhere.
 - **Your setup stays local.** Sites, settings and uploaded wallpapers live in your browser's own storage, and leave it only when *you* export them to a file.
 - **The news feed is off until you turn it on.** When you do, the browser asks your permission for each source, one site at a time, and the extension does one thing with it: fetch that feed. It never reads the pages you browse.
-- **Weather is looked up without identifying you.** No key, no account, and the location is either the one your browser offers or the city you typed.
+- **Weather is looked up without identifying you.** No key, no account, and the location is either the one your browser offers or the city you typed. Two services see it: [Open-Meteo](https://open-meteo.com/) for the forecast and [BigDataCloud](https://www.bigdatacloud.com/) to turn coordinates into a place name. Neither is given more than two decimal places — about a kilometre — and a reading is cached for fifteen minutes, so an ordinary day of new tabs is a handful of requests rather than one per tab.
 
 ---
 
@@ -121,7 +121,7 @@ Until then, you can build it and load it yourself see [`BUILD.md`](./BUILD.md).
 | **Linting**     | [ESLint 9](https://eslint.org/) + [typescript-eslint](https://typescript-eslint.io/)                    |
 | **Packaging**   | [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate) (Firefox, Chrome, Edge)     |
 | **Storage**     | `localStorage` for settings, IndexedDB for uploaded wallpapers                                          |
-| **Data**        | Weather from [Open-Meteo](https://open-meteo.com/), news from publishers' own RSS feeds                 |
+| **Data**        | Weather from [Open-Meteo](https://open-meteo.com/), place names from [BigDataCloud](https://www.bigdatacloud.com/), news from publishers' own RSS feeds |
 
 ---
 

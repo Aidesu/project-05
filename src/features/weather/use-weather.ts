@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
+import {
+  readCachedLabel,
+  readCachedWeather,
+  writeCachedLabel,
+  writeCachedWeather,
+} from "./weather-cache"
 import { fetchCurrentWeather, reverseGeocode, WeatherApiError } from "./weather-api"
 import { useWeatherStore } from "./weather-store"
 import type { ManualLocation, WeatherDisplay, WeatherSnapshot } from "./types"
 
+/**
+ * How often an open tab asks for a new reading. Matches the cache's own TTL
+ * (`weather-cache.ts`), and forces past it: this is the tick that makes a
+ * reading stale, so serving it the cache it just outgrew would freeze the card
+ * for as long as the tab stayed open.
+ */
 const REFRESH_INTERVAL_MS = 15 * 60 * 1000
 
 type WeatherResult =
@@ -48,7 +60,7 @@ export function useWeather(surface: WeatherDisplay) {
   // (e.g. the refresh interval firing mid-flight, or settings changing).
   const requestId = useRef(0)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { force?: boolean }) => {
     const id = ++requestId.current
     const commit = (next: WeatherResult) => {
       if (requestId.current === id) setResult(next)
@@ -81,7 +93,12 @@ export function useWeather(surface: WeatherDisplay) {
         commit({ status: "locating" })
         const position = await locateBrowser()
         const { latitude: lat, longitude: lon } = position.coords
-        place = { lat, lon, label: (await reverseGeocode(lat, lon)) ?? "Your location" }
+        // Kept apart from the reading and for far longer: a place is not
+        // renamed between two tabs, so only somewhere never seen before costs
+        // this request at all.
+        const label = readCachedLabel(lat, lon) ?? (await reverseGeocode(lat, lon))
+        if (label) writeCachedLabel(lat, lon, label)
+        place = { lat, lon, label: label ?? "Your location" }
       } catch (error) {
         // Only the browser refusing to say where we are, which is what a saved
         // city is the fallback for. The forecast itself is deliberately not in
@@ -94,11 +111,28 @@ export function useWeather(surface: WeatherDisplay) {
       }
     }
 
+    // A new tab a minute after the last one is asking about a temperature
+    // that has not moved. `force` is the refresh button and the interval,
+    // which are the two things that mean "no, actually ask".
+    const cached = options?.force ? null : readCachedWeather(place.lat, place.lon)
+    if (cached) {
+      commit({ status: "ready", data: cached, label: place.label })
+      return
+    }
+
     try {
       commit({ status: "loading", label: place.label })
       const data = await fetchCurrentWeather(place.lat, place.lon)
+      writeCachedWeather(place.lat, place.lon, data)
       commit({ status: "ready", data, label: place.label })
     } catch (error) {
+      // Better the reading from an hour ago than an error where a temperature
+      // should be: a rate limit or a flaky minute shouldn't empty the card.
+      const stale = readCachedWeather(place.lat, place.lon, { allowStale: true })
+      if (stale) {
+        commit({ status: "ready", data: stale, label: place.label })
+        return
+      }
       fail(error)
     }
   }, [locationMode, manualLocation])
@@ -111,9 +145,17 @@ export function useWeather(surface: WeatherDisplay) {
     if (!active) return
 
     void load()
-    const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS)
+    const interval = setInterval(() => void load({ force: true }), REFRESH_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [active, load])
 
-  return { ...result, refresh: load }
+  /**
+   * Its own callback rather than `load` itself: the card and the header line
+   * both hand this straight to an `onClick`, which would call it with a React
+   * event as its options — `force` undefined, and a refresh button that served
+   * the cache it was pressed to get past.
+   */
+  const refresh = useCallback(() => void load({ force: true }), [load])
+
+  return { ...result, refresh }
 }

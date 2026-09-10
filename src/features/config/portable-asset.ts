@@ -24,8 +24,11 @@ export const MAX_INLINED_ASSET_BYTES = 25 * 1024 * 1024
 /** What an export had to leave behind, so the UI can mention it. */
 export type AssetReport = { skipped: number }
 
-/** What an import had to change on the way in, so the UI can mention it too. */
-export type ImportReport = { upgraded: number }
+/**
+ * What an import had to change on the way in, and what it had to refuse, so
+ * the UI can mention both.
+ */
+export type ImportReport = { upgraded: number; oversized: number }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -53,6 +56,30 @@ export async function exportAsset(
   }
 
   return { type: "data", dataUrl: await blobToDataUrl(blob) }
+}
+
+/**
+ * What a `data:` URL will decode to, measured before it is decoded rather than
+ * after — the point of the check is not to allocate the bytes it refuses.
+ *
+ * Exact for base64, which is what every export writes: four characters carry
+ * three bytes, less whatever the trailing padding stands in for. It has to be
+ * exact rather than merely close, because an upload sitting on the export's own
+ * ceiling has to survive the round trip — rounding up by the two bytes the
+ * padding costs would refuse a file this app had just written.
+ *
+ * The other branch is a percent-encoded body, which no export produces; its
+ * length is an over-estimate, since a byte there costs a character at least.
+ */
+function decodedBytes(dataUrl: string): number {
+  const comma = dataUrl.indexOf(",")
+  if (comma === -1) return 0
+
+  const length = dataUrl.length - comma - 1
+  if (!/;base64\s*$/i.test(dataUrl.slice(5, comma))) return length
+
+  const padding = dataUrl.endsWith("==") ? 2 : dataUrl.endsWith("=") ? 1 : 0
+  return Math.floor((length * 3) / 4) - padding
 }
 
 /** The only two kinds of inlined bytes an export ever holds: an icon or a wallpaper. */
@@ -130,6 +157,17 @@ export async function importAsset(
   // Only a `data:` picture or video: the media types keep an imported blob to
   // what the app actually shows, whatever else a hand-edited file names.
   if (value.type === "data" && typeof value.dataUrl === "string" && isMediaDataUrl(value.dataUrl)) {
+    // The same ceiling the export writes to, read from the other side. An
+    // export never produces a larger one, so anything past it was written by
+    // hand — and the upload dialogs cap what a person can choose at a tenth of
+    // this, so nothing legitimate is refused here. Without it a file could put
+    // a blob of any size at all into IndexedDB, which is the one store with no
+    // quota small enough to stop it.
+    if (decodedBytes(value.dataUrl) > MAX_INLINED_ASSET_BYTES) {
+      report.oversized += 1
+      return undefined
+    }
+
     const blob = dataUrlToBlob(value.dataUrl)
     if (!blob) return undefined // malformed data URL: drop the asset, keep the rest
 
